@@ -107,7 +107,7 @@ function initPositionBuffer() {
   return positionBuffer;
 }
 
-function drawScene(programInfo, buffers){
+function drawScene(programInfo, buffers, squareRotation){
     gl.clearColor(0.0, 0.0, 0.0, 1.0); // Clear to black, fully opaque
     gl.clearDepth(1.0); // Clear everything
     gl.enable(gl.DEPTH_TEST); // Enable depth testing
@@ -146,13 +146,21 @@ function drawScene(programInfo, buffers){
         [-0.0, 0.0, -6.0],
     ); // amount to translate
 
+    // This will render the scene with a positive z (I think)
+    mat4.rotate(
+        modelViewMatrix, // destination matrix
+        modelViewMatrix, // matrix to translate
+        squareRotation,
+        [0.0, 0.0, 1.0],
+    ); // amount to translate
+
     // Tell WebGL how to pull out the positions from the position
     // buffer into the vertexPosition attribute.
     setPositionAttribute(buffers, programInfo);
 
     // On top of setting position attribute, set a color attribute
     setColorAttribute(gl, buffers, programInfo);
-    
+
     // Tell WebGL to use our program when drawing
     gl.useProgram(programInfo.program);
 
@@ -243,8 +251,8 @@ function main(){
     
     // Setup positions for each of the cubes verticies
     const shaderProgram = initShaderProgram(vsSource, fsSource);
-    // Collect all the info needed to use the shader program.
     
+    // Collect all the info needed to use the shader program.
     // Look up which attribute our shader program is using
     // for aVertexPosition and look up uniform locations.
     const programInfo = {
@@ -261,8 +269,22 @@ function main(){
 
     const buffers = initBuffers();
 
-    // Draw the scene
-    drawScene(programInfo, buffers);
+    let squareRotation = 0.0;
+    let deltaTime = 0;
+    let then = 0;
+
+    // Draw the scene repeatedly
+    function render(now) {
+        now *= 0.001; // convert to seconds
+        deltaTime = now - then;
+        then = now;
+
+        drawScene(programInfo, buffers, squareRotation);
+        squareRotation += deltaTime;
+
+        requestAnimationFrame(render);
+    }
+    requestAnimationFrame(render);
 }
 
 main();
