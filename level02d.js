@@ -10,19 +10,28 @@ const numComponents = 3;
 // "Its job is to transform the input vertex from its original coordinate system into the clip space"
 const vsSource = `
     attribute vec4 aVertexPosition;
+    attribute vec4 aVertexColor;
     uniform mat4 uModelViewMatrix;
     uniform mat4 uProjectionMatrix;
+
+    varying lowp vec4 vColor;
+
     void main() {
       gl_Position = uProjectionMatrix * uModelViewMatrix * aVertexPosition;
+      // We also need to get the color information with the veretx
+      vColor = aVertexColor;
     }`;
 // "return the transformed vertex by saving it in a special variable provided by GLSL, called gl_Position."
 
 // Fragment Shader 
 // "called once for every pixel on each shape to be drawn, after the shape's vertices have been processed by the vertex shader."
 const fsSource = `
+    // This is a color that was coming from the vertex shader. 
+    varying lowp vec4 vColor;
+
     void main() {
-        gl_FragColor = vec4(1.0, 0.0, 0.0, 1.0);
-    }    `;
+        gl_FragColor = vColor;
+    }`;
 // "The color is then returned to the WebGL layer by storing it in the special variable gl_FragColor. That color is then drawn to the screen"
 
 
@@ -67,9 +76,12 @@ function loadShader(type, source) {
 }
 
 function initBuffers() {
-  const positionBuffer = initPositionBuffer();
+    const positionBuffer = initPositionBuffer();
+    const fourVertexColorBuffer = initColorBuffer();
 
-  return { position: positionBuffer, };
+    return { position: positionBuffer, 
+        color: fourVertexColorBuffer,
+    };
 }
 
 function initPositionBuffer() {
@@ -138,6 +150,9 @@ function drawScene(programInfo, buffers){
     // buffer into the vertexPosition attribute.
     setPositionAttribute(buffers, programInfo);
 
+    // On top of setting position attribute, set a color attribute
+    setColorAttribute(gl, buffers, programInfo);
+    
     // Tell WebGL to use our program when drawing
     gl.useProgram(programInfo.program);
 
@@ -179,6 +194,40 @@ function setPositionAttribute(buffers, programInfo) {
     gl.enableVertexAttribArray(programInfo.attribLocations.vertexPosition);
 }
 
+// Tell WebGL how to pull out the colors from the color buffer
+// into the vertexColor attribute.
+function setColorAttribute(gl, buffers, programInfo) {
+    const numComponents = 4;
+    const type = gl.FLOAT;
+    const normalize = false;
+    const stride = 0;
+    const offset = 0;
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffers.color);
+    gl.vertexAttribPointer(
+        programInfo.attribLocations.vertexColor,
+        numComponents,
+        type,
+        normalize,
+        stride,
+        offset,
+    );
+    gl.enableVertexAttribArray(programInfo.attribLocations.vertexColor);
+}
+
+function initColorBuffer() {
+  const colors = [
+    1.0, 1.0, 1.0, 1.0, // white
+    1.0, 0.0, 0.0, 1.0, // red
+    0.0, 1.0, 0.0, 1.0, // green
+    0.0, 0.0, 1.0, 1.0, // blue
+  ];
+
+  const colorBuffer = gl.createBuffer();
+  gl.bindBuffer(gl.ARRAY_BUFFER, colorBuffer);
+  gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(colors), gl.STATIC_DRAW);
+
+  return colorBuffer;
+}
 
 function main(){
     console.log("Hello from level0.js");
@@ -202,12 +251,14 @@ function main(){
         program: shaderProgram,
         attribLocations: {
             vertexPosition: gl.getAttribLocation(shaderProgram, "aVertexPosition"),
+            vertexColor: gl.getAttribLocation(shaderProgram, "aVertexColor"),
         },
         uniformLocations: {
             projectionMatrix: gl.getUniformLocation(shaderProgram, "uProjectionMatrix"),
             modelViewMatrix: gl.getUniformLocation(shaderProgram, "uModelViewMatrix"),
         },
     };
+
     const buffers = initBuffers();
 
     // Draw the scene
