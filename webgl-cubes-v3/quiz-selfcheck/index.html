@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>WebGL Code Flashcards: Check Yourself</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1>WebGL Code Flashcards: Check Yourself</h1>
+    <div class="progress-track"><div id="progress-bar" class="progress-fill"></div></div>
+  </header>
+
+  <main>
+    <!-- Exploration page: the whole program, before the quiz -->
+    <section id="explore-screen" hidden>
+      <h2>Explore the code</h2>
+      <p>
+        Here is the whole WebGL cube program. Hover over the code to see what
+        each part does, and click any line to read more about it. When you're
+        ready, go on to the quiz.
+      </p>
+      <nav id="explore-nav" class="explore-nav" aria-label="Jump to a section"></nav>
+      <div class="explore-layout">
+        <div id="explore-code" class="code-view" tabindex="0"
+          aria-label="The cube program. Use the up and down arrow keys to move between lines."></div>
+        <aside class="explore-panel">
+          <div id="explore-line" class="panel-box line-box" hidden></div>
+          <div id="explore-section" class="panel-box"></div>
+        </aside>
+      </div>
+      <button id="explore-done" class="primary">Go to the quiz</button>
+    </section>
+
+    <!-- Start screen -->
+    <section id="start-screen" hidden>
+      <h2>What does this code do?</h2>
+      <p>
+        You'll work through <strong id="card-count"></strong> pieces of the
+        WebGL cube program, one at a time, with the comments removed. Each card
+        has four short steps:
+      </p>
+      <ol>
+        <li><strong>Summarize</strong> what the code accomplishes and why it's needed.</li>
+        <li><strong>Check yourself:</strong> compare your summary with an example
+          and tick off the key ideas you covered.</li>
+        <li><strong>Match</strong> comments to the lines they describe.</li>
+        <li><strong>Answer</strong> a few quick questions about the code.</li>
+      </ol>
+      <p class="note">
+        There's no score. You decide what you got. Anything you missed goes on a
+        review list at the end, so you know what to study.
+      </p>
+      <div class="buttons">
+        <button id="start-button" class="primary">Start</button>
+        <button id="back-to-explore" class="secondary">Back to explore the code</button>
+      </div>
+      <div id="last-review" class="history"></div>
+    </section>
+
+    <!-- One card -->
+    <section id="card-screen" hidden>
+      <p id="progress" class="progress-text"></p>
+      <h2 id="card-title"></h2>
+      <ol id="step-dots" class="step-dots"></ol>
+
+      <!-- Step 1: summary -->
+      <div class="step" data-step="summary" hidden>
+        <pre><code id="code-summary"></code></pre>
+        <label for="answer">In a few sentences: what does this code accomplish, and why is it needed?</label>
+        <textarea id="answer" rows="4"
+          placeholder="The big picture: what this code does and why the program needs it..."></textarea>
+        <button id="summary-next" class="primary">Next: check your summary (Enter)</button>
+      </div>
+
+      <!-- Step 2: self-check the summary -->
+      <div class="step" data-step="check" hidden>
+        <div class="columns">
+          <div>
+            <h3>Your summary</h3>
+            <p id="your-summary" class="summary-box"></p>
+          </div>
+          <div>
+            <h3>An example summary</h3>
+            <p id="example-summary" class="summary-box example"></p>
+          </div>
+        </div>
+        <h3>Which of these key ideas did your summary cover?</h3>
+        <p class="note">
+          Tick the ones you really explained, not just mentioned. Where the
+          quiz spots words that might match, it points them out, but you decide.
+        </p>
+        <ul id="idea-list" class="idea-list"></ul>
+        <div class="buttons">
+          <button id="check-done" class="primary">Done checking</button>
+          <button id="check-next" class="primary" hidden>Next: match the comments</button>
+        </div>
+      </div>
+
+      <!-- Step 3: match comments to lines -->
+      <div class="step" data-step="match" hidden>
+        <p>
+          Here are comments for this code, shuffled. Put each one on the line it
+          describes: drag it, or click a comment and then click a line. Click a
+          placed comment to take it back off.
+        </p>
+        <div id="match-bank" class="match-bank" aria-label="Comments to place"></div>
+        <div id="match-board" class="match-board"></div>
+        <p id="match-status" class="status" hidden></p>
+        <div class="buttons">
+          <button id="match-check" class="primary">Check my matches</button>
+          <button id="match-reveal" class="secondary" hidden>Show the answer</button>
+          <button id="match-next" class="primary" hidden>Next: questions</button>
+        </div>
+      </div>
+
+      <!-- Step 4: multiple-choice questions -->
+      <div class="step" data-step="questions" hidden>
+        <details class="code-ref">
+          <summary>Show the code</summary>
+          <pre><code id="code-questions"></code></pre>
+        </details>
+        <div id="question-list"></div>
+        <button id="questions-next" class="primary" hidden>Next card</button>
+      </div>
+    </section>
+
+    <!-- End: review list -->
+    <section id="results-screen" hidden>
+      <h2>Your review list</h2>
+      <p id="review-summary"></p>
+      <div id="review"></div>
+      <button id="retry-button" class="primary">Start over</button>
+    </section>
+  </main>
+
+  <script src="cards.js"></script>
+  <script src="quiz.js"></script>
+  <script src="explore-notes.js"></script>
+  <script src="explore.js"></script>
+</body>
+</html>

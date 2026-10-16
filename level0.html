@@ -1,48 +1,17 @@
-
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html>
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MonzaCubed Level 0</title>
+  <meta charset="utf-8">
+  <title>WebGL Cube Grid</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: black; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100%; }
+  </style>
 </head>
 <body>
-    <div class="header">
-        <h1> MonzaCubed Level 0 </h1>
-        <h1> Cam </h1>
-        <h1> Adi </h1>
-    </div>
-
-
-    <canvas id="level0Canvas"> </canvas>
-
+  <canvas id="level0Canvas"></canvas>
+  
+    <script src="https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/gl-matrix-min.js"></script>
+    <script src="level0.js"></script>
 </body>
-
-<script src="level0.js"></script>
-
 </html>
-
-<style>
-    html, body {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-    }
-
-    .header{
-        width: 100vw;
-        height: 10vh;
-        background-color: #FF1E00;
-        color: #15151E;
-        display: flex;  
-        flex-direction: row; 
-        gap: 10px
-    }
-
-    canvas{
-        width: 100vw;
-        height: 90vh;
-        background-color: greenyellow;
-    }
-
-</style>
