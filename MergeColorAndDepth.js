@@ -131,8 +131,10 @@ function interpolateHeightToColor(heightIn = null, colorIn = null){
 }
 
 // interpolateHeightToColor();
-function PngTo2DArr(inputPng){
-    var finalArr = [];
+function PngTo2DArr(inputPngPath){
+    const img = new Image();
+    // img.crossOrigin = "Anonymous"; // Prevents CORS security errors when reading pixel data
+    img.src = inputPngPath + 'png';
 
     // 1. Create an off-screen canvas and set its dimensions to match the image
     const canvas = document.createElement('canvas');
