@@ -1,3 +1,6 @@
+import heightmap from './src/MonzaHeightmapCropped.png'
+import colorImage from './src/MonzaSataliteCropped.png'
+
 function ratioImages(){
     console.log("Given a color and height image use both to create a landscape");
 
@@ -43,7 +46,7 @@ function ratioImages(){
 }
 
 
-function interpolateHeightToColor(){
+function interpolateHeightToColor(heightIn = null, colorIn = null){
     // Instead of finding the corresponding height 
     // based on rounding the ratio of the images, 
     // This fn should chose some in between values 
@@ -53,19 +56,27 @@ function interpolateHeightToColor(){
     console.log("Interpolating the height map onto the color image");
 
     // Array[row][col]
-    // This will be a 4x7 'image'
-    const colorImage = [
-        [1, 2, 3, 4, 5, 6, 7],
-        [8, 9, 10, 11, 12, 13, 14],
-        [15, 16, 17, 18, 19, 20, 21],
-        [22, 23, 24, 25, 26, 27, 28],
-    ]
-    // This will be a 3x5 height Map 
-    const heightMap = [
-        [100, 200, 300, 400, 500],
-        [600, 700, 800, 900, 1000],
-        [1100, 1200, 1300, 1400, 1500],
-    ]
+    // This will be a 4x7 'image' (Laeving this in from ex)
+    if(!colorIn){
+        colorIn = [
+            [1, 2, 3, 4, 5, 6, 7],
+            [8, 9, 10, 11, 12, 13, 14],
+            [15, 16, 17, 18, 19, 20, 21],
+            [22, 23, 24, 25, 26, 27, 28],
+        ]
+    }
+    const colorImage = colorIn;
+
+    if(!heightIn){
+        // This will be a 3x5 height Map 
+        heightIn = [
+            [100, 200, 300, 400, 500],
+            [600, 700, 800, 900, 1000],
+            [1100, 1200, 1300, 1400, 1500],
+        ]
+    }
+    const heightmap = heightIn;
+
 
     // I am going to want heightMap to transform ontop of the color Image
     let colorHeightRowRatio = heightMap.length / colorImage.length;
@@ -112,10 +123,63 @@ function interpolateHeightToColor(){
                 heightMap[row2Position][col2Position] * row2Percent * col2Percent;
 
             console.log(`Color: ${colorImage[row][col]}, Height: ${interpolatedValue} \n`);
+            colorImage[row][col] = {color: colorImage[row][col], height: interpolatedValue};
         }
     }
-
+    return colorImage;
 
 }
 
-interpolateHeightToColor();
+// interpolateHeightToColor();
+function PngTo2DArr(inputPng){
+    var finalArr = [];
+
+    // 1. Create an off-screen canvas and set its dimensions to match the image
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    const width = imgElement.naturalWidth || imgElement.width;
+    const height = imgElement.naturalHeight || imgElement.height;
+    
+    // 2. Draw the image onto the canvas and extract raw pixel data
+    ctx.drawImage(imgElement, 0, 0);
+    const imageData = ctx.getImageData(0, 0, width, height);
+    const data = imageData.data;
+    
+    // 3. Loop through rows (y) and columns (x) to reconstruct a 2D matrix
+    for (let y = 0; y < height; y++) {
+        const row = [];
+        for (let x = 0; x < width; x++) {
+            // Calculate the starting index of the 4-byte chunk for the current pixel
+            const index = (y * width + x) * 4;
+            
+            const r = data[index];
+            const g = data[index + 1];
+            const b = data[index + 2];
+            const a = data[index + 3];
+
+            // Format the color output based on preference
+            if (format === 'rgba-object') {
+            row.push({ r, g, b, a });
+            } else if (format === 'hex') {
+            const hex = ((r << 16) | (g << 8) | b).toString(16).padStart(6, '0');
+            row.push(`#${hex}`);
+            } else {
+            row.push(`rgba(${r}, ${g}, ${b}, ${a / 255})`);
+            }
+        }
+
+        finalArr.push(row);
+    }
+
+    return finalArr;
+}
+
+function main(){
+    const colorImage2dArr = PngTo2DArr(heightmap);
+    const heightMap2dArr = PngTo2DArr(colorImage);
+
+    const final2dArr = interpolateHeightToColor(colorImage2dArr, heightMap2dArr);
+
+}
+
+main();
