@@ -1,3 +1,6 @@
+// To lower the used memory render a reasonable amount of cubes,
+// we want to return a certian number of cubes
+const targetNumCubes = 10000; // Reasonable amount of cubes to render
 function imageToPixels2D(img) {
     // Need a canvas to get the data
     const canvas = document.createElement("canvas");
@@ -9,11 +12,23 @@ function imageToPixels2D(img) {
     // Get the data, width, and height from the ctx
     const { data, width, height } = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
+    // Get a x and y multiple to skip over cubes
+    const curToTargetCubesRatio = (canvas.width * canvas.height) / targetNumCubes ;
+    const newWidth = width / Math.sqrt(curToTargetCubesRatio);
+    const newHeight = height / Math.sqrt(curToTargetCubesRatio);
+    console.log(`
+        newWidth: ${newWidth} 
+        newHeight: ${newHeight}`);
+        
+    const widthSkip = width / newWidth;
+    const heightSkip = height / newHeight; 
+    console.log(`wSkip:${widthSkip}, hSkip:${heightSkip}`);
+
     // Standard itteration resulting in values like: pixels[y][x] = { r, g, b, a }
     const pixels = [];
-    for (let y = 0; y < height; y++) {
+    for (let y = 0; y < height; y += heightSkip){
         const row = [];
-        for (let x = 0; x < width; x++) {
+        for (let x = 0; x < width; x += widthSkip) {
             const i = (y * width + x) * 4;
             row.push({ r: data[i], g: data[i + 1], b: data[i + 2], a: data[i + 3] });
         }
@@ -54,12 +69,12 @@ function ratioImages(colorIn, heightIn){
             // console.log(`Color: ${colorIn[row][col]} , Height: ${heightIn[heightRowItr][heightColItr]}`);
             // console.log(`row: ${row}, col: ${col}, color: ${colorIn[row][col]}, height: ${0}`);
             // colorIn[row][col] = {color: colorIn[row][col], height: heightIn[heightRowItr][heightColItr]} 
-            var color = colorIn[row][col]
+            var color = colorIn[row][col];
             var height = heightIn[heightRowItr][heightColItr];
-            var heightValue = (height.r/255 + height.g/255 + height.b/255)/3
+            var heightValue = (height.r/255 + height.g/255 + height.b/255)/3;
             colorIn[row][col] = {
-                r: color.r/255, 
-                g: color.g/255, 
+                r: color.r/255,
+                g: color.g/255,
                 b: color.b/255,
                 height: heightValue
             } 
@@ -165,24 +180,26 @@ function interpolateHeightToColor(colorIn, heightIn){
 // };
 
 async function main(){
+
     // Get the images as 2d Arrs (Needs to be on liveserver ig)
+    // Should I export a text file of the arrs or something? 
+    console.log("getting the arrs");
     const sataliteImg = new Image();
-    sataliteImg.src = "assets/MonzaSataliteCropped.png";
+    sataliteImg.src = "assets/MonzaSataliteMoreCropped.png";
     await sataliteImg.decode();
     const satalite2dArr = imageToPixels2D(sataliteImg);
-    console.log(satalite2dArr[0][0]);
+    console.log(satalite2dArr);
 
     const heightMapImg = new Image();
-    heightMapImg.src = "assets/MonzaHeightmapCropped.png";
+    heightMapImg.src = "assets/MonzaHeightmapMoreCropped.png";
     await heightMapImg.decode();
     const heightMap2dArr = imageToPixels2D(heightMapImg);
-    console.log(heightMap2dArr[0][0]);
+    console.log(heightMap2dArr);
     // At this point, we have the 2d Arrs like this [row][col] = {{r,g,b,a}, height}
     
     // Then we are going to interpolate (?) the height onto the satalite imagery
-    // const sataliteHeight2dArr = interpolateHeightToColor(satalite2dArr, heightMap2dArr)
-    // This is returning a 2575 x 1269 2dArr, so it is 3.3m Elements (probably ~52 mb)
-    const sataliteHeight2dArr = ratioImages(satalite2dArr, heightMap2dArr)
+    // const sataliteHeight2dArr = ratioImages(satalite2dArr, heightMap2dArr)
+    const sataliteHeight2dArr = interpolateHeightToColor(satalite2dArr, heightMap2dArr)
     console.log(sataliteHeight2dArr);
 }
 

@@ -268,8 +268,8 @@ const uColor = gl.getUniformLocation(program, 'uColor');
 //    The cubes are laid out in a GRID_SIZE × GRID_SIZE grid on the
 //    ground plane (y = 0), centered on the origin.
 // ---------------------------------------------------------------------
-// const GRID_SIZE = 1000;   //bigger
-const GRID_SIZE = 10;    // 10 × 10 = 100 cubes
+const GRID_SIZE = 100;   //bigger
+// const GRID_SIZE = 10;    // 10 × 10 = 100 cubes
 const SPACING = 1.0;    // distance between cube ce// nters
 
 const cubes = [];
@@ -435,7 +435,7 @@ function draw() {
   // WebGL requires it to be false.)
   // function lookAt(eye, target, up) { // I think up is a normal vector
   // gl.uniformMatrix4fv(uView, false, lookAt([14, 14, 18], [0, 0, 0], [0, 1, 0]));
-  gl.uniformMatrix4fv(uView, false, lookAt([0, 20, 1], [0, 0, 0], [0, 1, 0]));
+  gl.uniformMatrix4fv(uView, false, lookAt([20, 75, 20], [0, 0, 0], [0, 1, 0]));
 
   // --- d. Draw every cube -------------------------------------------
   // Draw every cube: same triangles each time, different uniforms.
