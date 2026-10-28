@@ -32,7 +32,7 @@ import {getFinalArrFromAssets} from './ColorAndHeightImageToArr.js'
 // 0. Get a WebGL "context" from the <canvas> element in index.html.
 //    The context (gl) is the object we use to issue every WebGL command.
 // ---------------------------------------------------------------------
-const canvas = document.getElementById('level1Canvas');
+const canvas = document.getElementById('level2Canvas');
 const gl = canvas.getContext('webgl');
 
 
@@ -357,7 +357,6 @@ function scale(a, scale){
 function divide(a, b){
   return [a[0] / b[0], a[1] / b[1], a[2] / b[2]];
 }
-
 
 function normalize(a) {
   const length = Math.hypot(a[0], a[1], a[2]);

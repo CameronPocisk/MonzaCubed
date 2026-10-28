@@ -1,6 +1,6 @@
 // To lower the used memory render a reasonable amount of cubes,
 // we want to return a certian number of cubes
-const targetNumCubes = 10000; // Reasonable amount of cubes to render
+const targetNumCubes = 1000; // Reasonable amount of cubes to render
 function imageToPixels2D(img) {
     // Need a canvas to get the data
     const canvas = document.createElement("canvas");
