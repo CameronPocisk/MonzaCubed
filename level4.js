@@ -276,7 +276,7 @@ const SPACING = 1.0;    // distance between cube ce// nters
 
 // Get my arr
 const maxHeight = 20;
-const finalArr = await getFinalArrFromAssets("assets/MonzaSataliteJustTrack.png", "assets/MonzaHeightmapJustTrack.png", true);
+const finalArr = await getFinalArrFromAssets("assets/MonzaSataliteJustTrack.png", "assets/MonzaHeightmapJustTrack.png", 1000, false);
 var cubes = [];
 for (let row = 0; row < finalArr.length -1 ; row++) {
   for (let col = 0; col < finalArr[0].length - 1; col++) {

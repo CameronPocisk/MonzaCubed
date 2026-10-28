@@ -1,6 +1,5 @@
 // To lower the used memory render a reasonable amount of cubes,
 // we want to return a certian number of cubes
-const targetNumCubes = 1000; // Reasonable amount of cubes to render
 function imageToPixels2D(img) {
     // Need a canvas to get the data
     const canvas = document.createElement("canvas");
@@ -196,9 +195,11 @@ async function main(){
 }
 // main();
 
-export async function getFinalArrFromAssets(colorImageStr, heightmapStr, useInterpolation = true){
+var targetNumCubes = 10000;
+export async function getFinalArrFromAssets(colorImageStr, heightmapStr, numCubes = 10000, useInterpolation = true){
     // Get the images as 2d Arrs (Needs to be on liveserver ig)
     // Should I export a text file of the arrs or something? 
+    targetNumCubes = numCubes;
     console.log("getting the arrs");
     const colorImage = new Image();
     colorImage.src = colorImageStr;
