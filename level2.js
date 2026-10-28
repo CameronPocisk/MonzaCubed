@@ -336,6 +336,51 @@ function multiply(a, b) {
   return result;
 }
 
+// Cleaner for accessing (hehe)
+const X = 0;
+const Y = 1;
+const Z = 2;
+
+// Vector Functions
+function add(a, b){
+  return [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
+}
+
+function subtract(a, b){
+  return [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
+}
+
+function scale(a, scale){
+  return [a[0] * scale, a[1] * scale, a[2] * scale];
+}
+
+function divide(a, b){
+  return [a[0] / b[0], a[1] / b[1], a[2] / b[2]];
+}
+
+
+function normalize(a) {
+  const length = Math.hypot(a[0], a[1], a[2]);
+  return [a[0] / length, a[1] / length, a[2] / length];
+}
+
+function inverse(a) {
+  return [0 - a[0] , 0 - a[1],0 - a[2]];
+}
+
+function dot(a, b){
+  return a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+}
+
+function cross(a, b){
+  return [ 
+    a[1] * b[2] - a[2] * b[1],
+    a[2] * b[0] - a[0] * b[2],
+    a[0] * b[1] - a[1] * b[0],
+  ];
+}
+
+
 // Perspective projection: makes far-away objects look smaller.
 //   fieldOfView - how wide the camera sees, in radians
 //   aspect      - canvas width / height, so things aren't stretched
@@ -353,17 +398,6 @@ function perspective(fieldOfView, aspect, near, far) {
 // Camera matrix: place a camera at `eye`, looking at `target`.
 // `up` says which way is "up" for the camera (normally +y).
 function lookAt(eye, target, up) {
-  const subtract = (a, b) => [a[0] - b[0], a[1] - b[1], a[2] - b[2]];
-  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-  const cross = (a, b) => [
-    a[1] * b[2] - a[2] * b[1],
-    a[2] * b[0] - a[0] * b[2],
-    a[0] * b[1] - a[1] * b[0],
-  ];
-  const normalize = (a) => {
-    const length = Math.hypot(a[0], a[1], a[2]);
-    return [a[0] / length, a[1] / length, a[2] / length];
-  };
 
   // Build the camera's own three axes:
   const zAxis = normalize(subtract(eye, target)); // points backward, away from what we look at
@@ -381,15 +415,11 @@ function lookAt(eye, target, up) {
 // globals we are going to be using for draw
 var deltaTime = 0;
 var then = 0;
-var cameraX = 20;
-var cameraY = 50;
-var cameraZ = 20;
-var lookAtX = 0;
-var lookAtY = 0;
-var lookAtZ = 0;
-var eyeX = 0;
-var eyeY = 1;
-var eyeZ = 0;
+
+const startPosVec3 = [20, 50, 20];
+var cameraVec3 = [startPosVec3[X], startPosVec3[Y], startPosVec3[Z]];
+var lookAtVec3 = [0, 0, 0];
+var upVec3 = [0, 1, 0];
 // ---------------------------------------------------------------------
 // 5. DRAW
 //    Everything above was SETUP: it ran once and got the shaders, the
@@ -461,11 +491,11 @@ function draw(now) {
   // WebGL requires it to be false.)
   // function lookAt(eye, target, up) { // I think up is a normal vector
   // gl.uniformMatrix4fv(uView, false, lookAt([14, 14, 18], [0, 0, 0], [0, 1, 0]));
-  // gl.uniformMatrix4fv(uView, false, lookAt([cameraX, cameraY, cameraZ], [0, 0, 0], [0, 1, 0]));
+  // gl.uniformMatrix4fv(uView, false, lookAt([cameraVec3[X], cameraVec3[Y], cameraVec3[X]], [0, 0, 0], [0, 1, 0]));
   gl.uniformMatrix4fv(uView, false, lookAt(
-    [cameraX, cameraY, cameraZ], // Eye 
-    [lookAtX, lookAtY, lookAtZ], // Look at
-    [eyeX, eyeY, eyeZ] //up
+    [cameraVec3[X], cameraVec3[Y], cameraVec3[Z]], // Eye 
+    [lookAtVec3[X], lookAtVec3[Y], lookAtVec3[Z]], // Look at
+    [upVec3[X], upVec3[Y], upVec3[Z]] // up
   ));
 
   // --- d. Draw every cube -------------------------------------------
@@ -518,47 +548,59 @@ function main(){
 }
 
 // Add Keypress stuff so the game can move
+// Even though I used AI for the mouse looking, I did this all myself :)
 document.addEventListener("keydown", (event) => {
-    console.log(event);
-    // event.preventDefault();
-    
-      switch (event.key) {
-      case "w":
-        cameraZ -= 1; // Up is a Z increase
-        lookAtZ -= 1;
-        break;
-      case "a":
-        cameraX -= 1; // Up is a Z increase
-        lookAtX -= 1;
-      break;
-        case "s":
-        cameraZ += 1; // Up is a Z increase
-        lookAtZ += 1;
-      break;
-        case "d":
-        cameraX += 1; // Up is a Z increase
-        lookAtX += 1;
-      break;
-      case "ArrowUp":
-        //****TO DO: Change camera z position go further away
-        cameraY += 1; // Down is Z decrement
-        lookAtY += 1
-      break;
-      case "ArrowDown":
-        //****TO DO: Change camera z position go further away
-        cameraY -= 1; // Down is Z decrement
-        lookAtY -= 1;
-      break;
-      case 'R':
-        //****TO DO: reset camera
-        console.log("Reset"); // Print not happening.
-        cameraX = 0; // copy the values so we dont confuse the object
-        cameraY = 0;
-        cameraZ = 0;
-      break;
+    // Going to use these to find the axii to move at
+    // Use th cross product to get the left and right parts
+    const cameraToTarget = subtract(lookAtVec3, cameraVec3);
+    const perp = normalize(cross(cameraToTarget, upVec3));
+    // The forward part is known as the rejection (found out via https://www.vectorvisualizer.com/visualizer)
+    // I found a formula online and applied it here
+    const a = cameraToTarget
+    const b = upVec3
+    const projBonA = scale(b, (dot(a, b)) / (dot(b, b)));
+    const rejection = subtract(a, projBonA);
+    const forward = normalize(rejection); 
 
-      default:
-      return;  
+    switch (event.key) {
+    case "w":
+      cameraVec3 = add(cameraVec3, forward);
+      lookAtVec3 = add(lookAtVec3, forward);
+      break;
+    case "a":
+      cameraVec3 = subtract(cameraVec3, perp);
+      lookAtVec3 = subtract(lookAtVec3, perp);
+    break;
+      case "s":
+      cameraVec3 = subtract(cameraVec3, forward);
+      lookAtVec3 = subtract(lookAtVec3, forward);
+    break;
+      case "d":
+      cameraVec3 = add(cameraVec3, perp);
+      lookAtVec3 = add(lookAtVec3, perp);
+    break;
+    case "ArrowUp":
+      //****TO DO: Change camera z position go further away
+      cameraVec3[Y] += 1; // Down is Z decrement
+      lookAtVec3[Y] += 1
+    break;
+    case "ArrowDown":
+      //****TO DO: Change camera z position go further away
+      cameraVec3[Y] -= 1; // Down is Z decrement
+      lookAtVec3[Y] -= 1;
+    break;
+    // Reset with shift R
+    case 'R':
+      cameraVec3[X] = startPosVec3[X]; // copy the values so we dont confuse the object
+      cameraVec3[Y] = startPosVec3[Y];
+      cameraVec3[Z] = startPosVec3[Z];
+      lookAtVec3[X] = 0;
+      lookAtVec3[Y] = 0;
+      lookAtVec3[Z] = 0;
+    break;
+
+    default:
+    return;
   }
 });
 
@@ -579,18 +621,18 @@ document.addEventListener('mouseup', () => {
 var sensitivity = 0.004;
 
 // Starting direction, from your current camera -> target
-var dx = lookAtX - cameraX;
-var dy = lookAtY - cameraY;
-var dz = lookAtZ - cameraZ;
+var dx = lookAtVec3[X] - cameraVec3[X];
+var dy = lookAtVec3[Y] - cameraVec3[Y];
+var dz = lookAtVec3[Z] - cameraVec3[Z];
 var lookDist = Math.hypot(dx, dy, dz);
 
 var yaw   = Math.atan2(dx, dz);
 var pitch = Math.asin(dy / lookDist);
 
 function applyLook() {
-  lookAtX = cameraX + lookDist * Math.cos(pitch) * Math.sin(yaw);
-  lookAtY = cameraY + lookDist * Math.sin(pitch);
-  lookAtZ = cameraZ + lookDist * Math.cos(pitch) * Math.cos(yaw);
+  lookAtVec3[X] = cameraVec3[X] + lookDist * Math.cos(pitch) * Math.sin(yaw);
+  lookAtVec3[Y] = cameraVec3[Y] + lookDist * Math.sin(pitch);
+  lookAtVec3[Z] = cameraVec3[Z] + lookDist * Math.cos(pitch) * Math.cos(yaw);
 }
 
 document.addEventListener('mousemove', (e) => {
