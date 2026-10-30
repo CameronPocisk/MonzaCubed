@@ -1,5 +1,13 @@
 import {getFinalArrFromAssets} from './ColorAndHeightImageToArr.js'
 
+// Skybox assets
+const up    = './assets/SunnyCloudSkybox/clouds1_up.bmp';
+const down  = './assets/SunnyCloudSkybox/clouds1_down.bmp';
+const north = './assets/SunnyCloudSkybox/clouds1_north.bmp';
+const east  = './assets/SunnyCloudSkybox/clouds1_east.bmp';
+const south = './assets/SunnyCloudSkybox/clouds1_south.bmp';
+const west  = './assets/SunnyCloudSkybox/clouds1_west.bmp';
+
 // =====================================================================
 //  A grid of cubes with random colors and random heights, in WebGL
 // =====================================================================
@@ -104,6 +112,32 @@ const fragmentShaderSource = /* glsl */`
   }
 `;
 
+// Shaders for the skybox
+// Skybox Vertex
+const skyboxVertexShader = /* glsl */ `
+attribute vec4 a_position;
+varying vec4 v_position;
+void main() {
+  v_position = a_position;
+  gl_Position = a_position;
+  gl_Position.z = 1.0;
+}
+
+// Skybox Fragment
+`
+const skyboxFragmentShader = /* glsl */ `
+precision mediump float;
+
+uniform samplerCube u_skybox;
+uniform mat4 u_viewDirectionProjectionInverse;
+
+varying vec4 v_position;
+void main() {
+  vec4 t = u_viewDirectionProjectionInverse * v_position;
+  gl_FragColor = textureCube(u_skybox, normalize(t.xyz / t.w));
+}
+`
+
 // Compile one shader and report any GLSL errors.
 function compileShader(type, source) {
   const shader = gl.createShader(type);
@@ -121,7 +155,14 @@ const program = gl.createProgram();
 gl.attachShader(program, compileShader(gl.VERTEX_SHADER, vertexShaderSource));
 gl.attachShader(program, compileShader(gl.FRAGMENT_SHADER, fragmentShaderSource));
 gl.linkProgram(program);
-gl.useProgram(program);
+
+// Create a second program for the skybox
+const skyboxProgram = gl.createProgram();
+gl.attachShader(skyboxProgram, compileShader(gl.VERTEX_SHADER, skyboxVertexShader));
+gl.attachShader(skyboxProgram, compileShader(gl.FRAGMENT_SHADER, skyboxFragmentShader));
+gl.linkProgram(skyboxProgram);
+
+// gl.useProgram(program); // (We will use this program after we draw the main program)
 
 
 // ---------------------------------------------------------------------
@@ -263,6 +304,108 @@ const uView = gl.getUniformLocation(program, 'uView');
 const uProjection = gl.getUniformLocation(program, 'uProjection');
 const uColor = gl.getUniformLocation(program, 'uColor');
 
+// Skybox Buffer
+
+// look up where the vertex data needs to go.
+var positionLocation = gl.getAttribLocation(skyboxProgram, "a_position");
+
+// lookup uniforms
+var skyboxLocation = gl.getUniformLocation(skyboxProgram, "u_skybox");
+var viewDirectionProjectionInverseLocation =
+gl.getUniformLocation(skyboxProgram, "u_viewDirectionProjectionInverse");
+
+// Create a buffer for positions
+var positionBuffer = gl.createBuffer();
+// Bind it to ARRAY_BUFFER (think of it as ARRAY_BUFFER = positionBuffer)
+gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+
+// Fill the buffer with the values that define a quad.
+function setGeometry(gl) {
+  var positions = new Float32Array(
+    [
+      -1, -1,
+       1, -1,
+      -1,  1,
+      -1,  1,
+       1, -1,
+       1,  1,
+    ]);
+  gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+}
+
+// Put the positions in the buffer
+setGeometry(gl);
+
+// Create a texture.
+var texture = gl.createTexture();
+gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+
+const faceInfos = [
+  {
+    target: gl.TEXTURE_CUBE_MAP_POSITIVE_X,
+    url: west,
+  },
+  {
+    target: gl.TEXTURE_CUBE_MAP_NEGATIVE_X,
+    url: east,
+  },
+  {
+    target: gl.TEXTURE_CUBE_MAP_POSITIVE_Y,
+    url: up,
+  },
+  {
+    target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Y,
+    url: down
+  },
+  {
+    target: gl.TEXTURE_CUBE_MAP_POSITIVE_Z,
+    url: south,
+  },
+  {
+    target: gl.TEXTURE_CUBE_MAP_NEGATIVE_Z,
+    url: north,
+  },
+];
+
+faceInfos.forEach((faceInfo) => {
+  const {target, url} = faceInfo;
+
+  // Upload the canvas to the cubemap face.
+  const level = 0;
+  const internalFormat = gl.RGBA;
+  const width = 512;
+  const height = 512;
+  const format = gl.RGBA;
+  const type = gl.UNSIGNED_BYTE;
+
+  // setup each face so it's immediately renderable
+  gl.texImage2D(target, level, internalFormat, width, height, 0, format, type, null);
+
+  // Asynchronously load an image
+  const image = new Image();
+  image.src = url;
+  image.addEventListener('load', function() {
+    // Now that the image has loaded make copy it to the texture.
+    gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+    gl.texImage2D(target, level, internalFormat, format, type, image);
+    gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+  });
+});
+gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+
+function radToDeg(r) {
+  return r * 180 / Math.PI;
+}
+
+function degToRad(d) {
+  return d * Math.PI / 180;
+}
+
+var fieldOfViewRadians = degToRad(60);
+var cameraYRotationRadians = degToRad(0);
+
 
 // ---------------------------------------------------------------------
 // 3. THE SCENE: a plain JavaScript list of cubes
@@ -270,8 +413,7 @@ const uColor = gl.getUniformLocation(program, 'uColor');
 //    The cubes are laid out in a GRID_SIZE × GRID_SIZE grid on the
 //    ground plane (y = 0), centered on the origin.
 // ---------------------------------------------------------------------
-const GRID_SIZE = 100;   //bigger
-// const GRID_SIZE = 10;    // 10 × 10 = 100 cubes
+const GRID_SIZE = 10;    // 10 × 10 = 100 cubes
 const SPACING = 1.0;    // distance between cube ce// nters
 
 // Get my arr
@@ -440,6 +582,8 @@ function draw(now) {
   deltaTime = now - then;
   then = now;
 
+  // Common frame drawing stuff
+
   // Get the arr we need to render the cubes
   // I have this using the ratio since it should be a tiny bit more accurate
   // --- a. Size the drawing area -------------------------------------
@@ -460,6 +604,36 @@ function draw(now) {
   // (red, green, blue, alpha). Nothing is cleared until gl.clear().
   gl.clearColor(0, 0, 0, 1);
 
+  // Erase both the colors (to black) and the depth info (to "nothing
+  // drawn yet") so the last picture doesn't leak into this one.
+  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+
+  
+  // DRAW SKYBOX
+  drawSkybox();
+  
+  drawCubes();
+
+  requestAnimationFrame(draw);
+}
+
+// Since each program has different flags, it's advised to draw them seperately
+function drawCubes(){
+
+  // Make sure we are using the main program for this part of draw
+  gl.useProgram(program);
+
+  // Bind the buffer for each program
+  gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+
+  // reset the attrs
+  gl.enableVertexAttribArray(aPosition);
+  gl.vertexAttribPointer(aPosition, 3, gl.FLOAT, false, stride, 0);
+  
+  gl.enableVertexAttribArray(aNormal);
+  gl.vertexAttribPointer(aNormal, 3, gl.FLOAT, false, stride, 3 * BYTES_PER_FLOAT);
+
+
   // Depth testing makes near cubes hide far cubes, no matter which
   // order we draw them in. Each frame we clear the depth info too.
   //
@@ -468,10 +642,6 @@ function draw(now) {
   // so far is. When a new pixel arrives, WebGL compares its distance to
   // the stored one and only keeps it if it is closer.
   gl.enable(gl.DEPTH_TEST);
-
-  // Erase both the colors (to black) and the depth info (to "nothing
-  // drawn yet") so the last picture doesn't leak into this one.
-  gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
   // --- c. Set the camera --------------------------------------------
   // The camera is the same for every cube, so set it once.
@@ -526,7 +696,76 @@ function draw(now) {
     gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
   }
 
-  requestAnimationFrame(draw);
+  // Reset the flags we chose
+  // gl.disable(gl.DEPTH_TEST);
+}
+
+function drawSkybox(){
+  // Tell it to use our program (pair of shaders)
+  gl.useProgram(skyboxProgram);
+
+  // glsl flags for the skybox
+  gl.enable(gl.CULL_FACE);
+  gl.enable(gl.DEPTH_TEST);
+
+  // Turn on the position attribute
+  gl.enableVertexAttribArray(positionLocation);
+
+  // Bind the position buffer.
+  gl.bindBuffer(gl.ARRAY_BUFFER, positionBuffer);
+
+  // Tell the position attribute how to get data out of positionBuffer (ARRAY_BUFFER)
+  var size = 2;          // 2 components per iteration
+  var type = gl.FLOAT;   // the data is 32bit floats
+  var normalize = false; // don't normalize the data
+  var stride = 0;        // 0 = move forward size * sizeof(type) each iteration to get the next position
+  var offset = 0;        // start at the beginning of the buffer
+  
+  gl.vertexAttribPointer(
+        positionLocation, size, type, normalize, stride, offset);
+  var aspect = gl.canvas.clientWidth / gl.canvas.clientHeight;
+  var projectionMatrix =
+    m4.perspective(fieldOfViewRadians, aspect, 1, 2000);
+
+  // Have it use our camera positions
+  var cameraPosition = [cameraVec3[X], cameraVec3[Y], cameraVec3[Z]];
+  var target = [lookAtVec3[X], lookAtVec3[Y], lookAtVec3[Z]];
+  var up = [upVec3[X], upVec3[Y], upVec3[Z]];
+  // Compute the camera's matrix using look at.
+  var cameraMatrix = m4.lookAt(cameraPosition, target, up);
+
+  // Make a view matrix from the camera matrix.
+  var viewMatrix = m4.inverse(cameraMatrix);
+
+  // We only care about direciton so remove the translation
+  viewMatrix[12] = 0;
+  viewMatrix[13] = 0;
+  viewMatrix[14] = 0;
+
+  var viewDirectionProjectionMatrix =
+      m4.multiply(projectionMatrix, viewMatrix);
+  var viewDirectionProjectionInverseMatrix =
+      m4.inverse(viewDirectionProjectionMatrix);
+
+  // Set the uniforms
+  gl.uniformMatrix4fv(
+      viewDirectionProjectionInverseLocation, false,
+      viewDirectionProjectionInverseMatrix);
+
+  // Tell the shader to use texture unit 0 for u_skybox
+  gl.uniform1i(skyboxLocation, 0);
+
+  // let our quad pass the depth test at 1.0
+  gl.depthFunc(gl.LEQUAL);
+
+  // Draw the geometry.
+  gl.drawArrays(gl.TRIANGLES, 0, 1 * 6);
+
+  // Reset the glsl flags bc I changed
+  gl.disable(gl.CULL_FACE);
+  gl.disable(gl.DEPTH_TEST);
+  // gl.depthFunc(gl.LESS); // Return to default
+  // gl.depthMask(true);
 }
 
 // Draw the scene once when the page loads. Nothing moves, so we don't

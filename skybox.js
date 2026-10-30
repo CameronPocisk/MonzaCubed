@@ -7,6 +7,30 @@ const west  = './assets/SunnyCloudSkybox/clouds1_west.bmp';
 
 "use strict";
 
+// GET THE SHADERS HERE
+const vertexShader3d = /* glsl */ `
+attribute vec4 a_position;
+varying vec4 v_position;
+void main() {
+  v_position = a_position;
+  gl_Position = a_position;
+  gl_Position.z = 1.0;
+}
+`
+
+const fragmentShader3d = /* glsl */ `
+precision mediump float;
+
+uniform samplerCube u_skybox;
+uniform mat4 u_viewDirectionProjectionInverse;
+
+varying vec4 v_position;
+void main() {
+  vec4 t = u_viewDirectionProjectionInverse * v_position;
+  gl_FragColor = textureCube(u_skybox, normalize(t.xyz / t.w));
+}
+`
+
 function main() {
   // Get A WebGL context
   /** @type {HTMLCanvasElement} */
@@ -17,7 +41,7 @@ function main() {
   }
 
   // setup GLSL program
-  var program = webglUtils.createProgramFromScripts(gl, ["vertex-shader-3d", "fragment-shader-3d"]);
+  var program = webglUtils.createProgramFromSources(gl, [vertexShader3d, fragmentShader3d]);
 
   // look up where the vertex data needs to go.
   var positionLocation = gl.getAttribLocation(program, "a_position");

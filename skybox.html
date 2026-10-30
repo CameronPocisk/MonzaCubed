@@ -34,7 +34,8 @@ void main() {
   vec4 t = u_viewDirectionProjectionInverse * v_position;
   gl_FragColor = textureCube(u_skybox, normalize(t.xyz / t.w));
 }
-</script><!--
+</script>
+<!--
 for most samples webgl-utils only provides shader compiling/linking and
 canvas resizing because why clutter the examples with code that's the same in every sample.
 See https://webglfundamentals.org/webgl/lessons/webgl-boilerplate.html
