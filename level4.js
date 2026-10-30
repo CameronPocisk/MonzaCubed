@@ -418,7 +418,8 @@ const SPACING = 1.0;    // distance between cube ce// nters
 
 // Get my arr
 const maxHeight = 20;
-const finalArr = await getFinalArrFromAssets("assets/MonzaSataliteJustTrack.png", "assets/MonzaHeightmapJustTrack.png", 1000, false);
+const numCubes = 20000;
+const finalArr = await getFinalArrFromAssets("assets/MonzaSataliteJustTrack.png", "assets/MonzaHeightmapJustTrack.png", numCubes, false);
 var cubes = [];
 for (let row = 0; row < finalArr.length -1 ; row++) {
   for (let col = 0; col < finalArr[0].length - 1; col++) {
@@ -650,7 +651,8 @@ function drawCubes(){
   // so cubes aren't squashed, and a visible range from 0.1 to 100 units
   // away from the camera. Anything outside that range is not drawn.
   const aspect = canvas.width / canvas.height;
-  gl.uniformMatrix4fv(uProjection, false, perspective(Math.PI / 4, aspect, 0.1, 100));
+  const farParam = 200; // idk what units this is, but make sure we still draw cubes that are far
+  gl.uniformMatrix4fv(uProjection, false, perspective(Math.PI / 4, aspect, 0.1, 100 * 2));
 
   // View: the camera sits at (14, 14, 18) - up and off to one side -
   // looks at the center of the grid (0, 0, 0), and +y is "up".
@@ -763,7 +765,6 @@ function drawSkybox(){
 
   // Reset the glsl flags bc I changed
   gl.disable(gl.CULL_FACE);
-  gl.disable(gl.DEPTH_TEST);
   // gl.depthFunc(gl.LESS); // Return to default
   // gl.depthMask(true);
 }
