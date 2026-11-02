@@ -1,0 +1,10 @@
+# macOS
+.DS_Store
+
+# Old code kept for reference, not part of the project
+_archive/
+
+# Big source files (the exported OBJ + textures in assets/car are what the site uses)
+assets/2026_audi_r26.glb
+assets/car/*.blend
+assets/audrs26.blend1

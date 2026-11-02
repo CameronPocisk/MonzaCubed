@@ -10,3 +10,10 @@ Navigate to the same area
 
 Then, using a heightmap with labels on half opacity, overlap the heightmap and satalite imagery
 Finally, resize them to be as large as you can and screenshot the cropped images
+
+# Credits
+
+## 3D model
+"2026 Audi R26" (https://skfb.ly/pOvCu) by Dave Love SketchFab is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
+
+Changes made: the model was reduced in polygon count (Blender Decimate modifier) and exported to OBJ so it could be drawn many times in WebGL, and its paint areas are recolored in the shader to show each 2026 team's livery. Using an imported model (instead of cubes only) was approved by Prof. Aurisano.

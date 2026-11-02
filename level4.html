@@ -2,14 +2,56 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>WebGL Cube Grid</title>
+  <title>Level 4: Monza with Skybox</title>
   <style>
     html, body { margin: 0; height: 100%; background: black; overflow: hidden; }
     canvas { display: block; width: 100%; height: 100%; }
+
+    /* ---- Floating control panel (identical in every level) ---- */
+    #controls {
+      position: fixed; top: 12px; left: 12px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+      max-width: calc(100% - 48px);
+      background: rgba(0, 0, 0, 0.6); color: white;
+      padding: 8px 12px; border-radius: 6px;
+      font-family: system-ui, sans-serif; font-size: 14px;
+    }
+    #controls button {
+      background: #d40000; color: white; border: 0; border-radius: 4px;
+      padding: 4px 12px; font: inherit; cursor: pointer; min-width: 64px;
+    }
+    #controls label { display: flex; align-items: center; gap: 6px; }
+    #controls input[type=number] { width: 56px; }
+    #controls input[type=range] { width: 100px; }
+    #controls .presets { display: flex; align-items: center; gap: 4px; }
+    #controls .gridPreset { background: #333; min-width: 0; padding: 4px 8px; }
+    #controls .gridPreset:hover { background: #555; }
+    #controls .gridPreset.active { background: #d40000; }
+    #fps, #status { color: #9a9ca3; font-variant-numeric: tabular-nums; }
+    /* Instructions line along the bottom of the panel */
+    #controls .hint { width: 100%; font-size: 12px; color: #9a9ca3; }
+    #controls .hint .warn { color: #ffb347; }
   </style>
 </head>
 <body>
   <canvas id="level4Canvas"></canvas>
+
+  <!-- Floating control panel (sits on top of the canvas) -->
+  <div id="controls">
+    <span class="presets">
+      <span>Resolution</span>
+      <button class="gridPreset resolution" data-cubes="2500">2.5k</button>
+      <button class="gridPreset resolution active" data-cubes="10000">10k</button>
+      <button class="gridPreset resolution" data-cubes="20000">20k</button>
+      <button class="gridPreset resolution" data-cubes="40000">40k</button>
+    </span>
+    <label>Height <input type="range" id="heightScale" min="0" max="40" step="1" value="20"></label>
+    <label>Camera speed <input type="range" id="moveSpeed" min="0.2" max="5" step="0.1" value="1"></label>
+    <span id="status"></span>
+    <span id="fps">– FPS</span>
+    <div class="hint">WASD to move · ↑/↓ to raise or lower · Click and drag to look · Shift+R to reset ·
+      <span class="warn">⚠ Higher resolutions need a fast computer</span></div>
+  </div>
 
     <script type="module" src="ColorAndHeightImageToArr.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/gl-matrix-min.js"></script>

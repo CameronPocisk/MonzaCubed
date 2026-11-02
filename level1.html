@@ -2,15 +2,62 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>WebGL Cube Grid</title>
+  <title>Level 1: Procedural Cube Landscape</title>
   <style>
     html, body { margin: 0; height: 100%; background: black; overflow: hidden; }
     canvas { display: block; width: 100%; height: 100%; }
+
+    /* ---- Floating control panel (identical in every level) ---- */
+    #controls {
+      position: fixed; top: 12px; left: 12px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+      max-width: calc(100% - 48px);
+      background: rgba(0, 0, 0, 0.6); color: white;
+      padding: 8px 12px; border-radius: 6px;
+      font-family: system-ui, sans-serif; font-size: 14px;
+    }
+    #controls button {
+      background: #d40000; color: white; border: 0; border-radius: 4px;
+      padding: 4px 12px; font: inherit; cursor: pointer; min-width: 64px;
+    }
+    #controls label { display: flex; align-items: center; gap: 6px; }
+    #controls input[type=number] { width: 56px; }
+    #controls input[type=range] { width: 100px; }
+    #controls .presets { display: flex; align-items: center; gap: 4px; }
+    #controls .gridPreset { background: #333; min-width: 0; padding: 4px 8px; }
+    #controls .gridPreset:hover { background: #555; }
+    #controls .gridPreset.active { background: #d40000; }
+    #fps, #status { color: #9a9ca3; font-variant-numeric: tabular-nums; }
+    /* Instructions line along the bottom of the panel */
+    #controls .hint { width: 100%; font-size: 12px; color: #9a9ca3; }
+    #controls .hint .warn { color: #ffb347; }
   </style>
 </head>
 <body>
   <canvas id="level1Canvas"></canvas>
+
+  <!-- Floating control panel (sits on top of the canvas) -->
+  <div id="controls">
+    <button id="playPause">Pause</button>
+    <label>Speed <input type="range" id="speed" min="0" max="3" step="0.1" value="1"></label>
+    <label>Grid Size <input type="number" id="gridSize" min="1" max="300" value="100"></label>
+    <span class="presets">
+      <button class="gridPreset" data-size="10">10</button>
+      <button class="gridPreset" data-size="50">50</button>
+      <button class="gridPreset" data-size="100">100</button>
+      <button class="gridPreset" data-size="200">200</button>
+    </span>
+    <span class="presets">
+      <span>Zoom</span>
+      <button class="gridPreset" id="zoomIn" title="Zoom in">+</button>
+      <button class="gridPreset" id="zoomOut" title="Zoom out">−</button>
+      <button class="gridPreset" id="zoomReset" title="Reset zoom">Reset</button>
+    </span>
+    <span id="fps">– FPS</span>
+    <div class="hint">Camera orbits the center of the grid · Scroll or use +/− to zoom · Type any grid size up to 300</div>
+  </div>
   
+
     <script src="https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/gl-matrix-min.js"></script>
     <script src="level1.js"></script>
 </body>

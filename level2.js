@@ -275,23 +275,76 @@ const GRID_SIZE = 100;   //bigger
 const SPACING = 1.0;    // distance between cube ce// nters
 
 // Get my arr
-const maxHeight = 20;
-const finalArr = await getFinalArrFromAssets("assets/MonzaSataliteJustTrack.png", "assets/MonzaHeightmapJustTrack.png", 10000, true);
-var cubes = [];
-for (let row = 0; row < finalArr.length -1 ; row++) {
-  for (let col = 0; col < finalArr[0].length - 1; col++) {
-    cubes.push({
-      // x: (col - (GRID_SIZE - 1) / 2) * SPACING,
-      x: (col - (finalArr.length - 1) / 2) * SPACING,
-      // z: (row - (GRID_SIZE - 1) / 2) * SPACING,
-      z: (row - (finalArr[0].length - 1) / 2) * SPACING,
-      // height: 0.5 + Math.random() * 4,                        // 0.5 to 4.5
-      height: finalArr[row][col].height * maxHeight, // Apply the height normal. 
-      color: [finalArr[row][col].r, finalArr[row][col].g, finalArr[row][col].b],
-    });
+// Heights in the heightmap are 0..1 after sampling. The Height slider
+// (default 10) sets how tall a cube with height 1 becomes, live.
+const heightSlider = document.getElementById('heightScale');
+// Camera speed slider: how far one WASD / arrow key press moves the camera.
+const moveSpeedSlider = document.getElementById('moveSpeed');
+// After dragging a slider, give keyboard focus back to the page so the
+// arrow keys move the camera instead of nudging the slider.
+for (const slider of [heightSlider, moveSpeedSlider]) {
+  slider.addEventListener('change', () => slider.blur());
+}
+let cubes = [];      // shared with draw(); replaced whenever the resolution changes
+let mapRows = 0;     // size of the current sampled grid (used for the far plane)
+let mapCols = 0;
+
+const statusLabel = document.getElementById('status');
+
+// Sample the two images at roughly `numCubes` cubes and rebuild the scene.
+// async because loading + reading the images takes a moment.
+async function buildLandscape(numCubes){
+  statusLabel.textContent = `Loading ${numCubes.toLocaleString()} cubes…`;
+  const finalArr = await getFinalArrFromAssets("assets/MonzaSataliteJustTrack.png", "assets/MonzaHeightmapJustTrack.png", numCubes, true);
+
+  // Build into a new list, then swap it in all at once so draw()
+  // never sees a half-built landscape.
+  const newCubes = [];
+  for (let row = 0; row < finalArr.length -1 ; row++) {
+    for (let col = 0; col < finalArr[0].length - 1; col++) {
+      newCubes.push({
+        // col walks across the image (columns), row walks down it (rows),
+        // so x is centered with the column count and z with the row count.
+        x: (col - (finalArr[0].length - 1) / 2) * SPACING,
+        z: (row - (finalArr.length - 1) / 2) * SPACING,
+        height: finalArr[row][col].height,   // 0..1 from the heightmap; scaled by the Height slider in draw()
+        color: [finalArr[row][col].r, finalArr[row][col].g, finalArr[row][col].b],
+      });
+    }
   }
+  cubes = newCubes;
+  mapRows = finalArr.length;
+  mapCols = finalArr[0].length;
+  statusLabel.textContent = `${mapCols} × ${mapRows} grid`;
 }
 
+// Start LOW so it opens fast on any laptop; the buttons go higher.
+buildLandscape(2500);
+
+// Resolution buttons
+const resolutionButtons = document.querySelectorAll('.resolution');
+for (const button of resolutionButtons) {
+  button.addEventListener('click', async () => {
+    resolutionButtons.forEach(b => b.classList.remove('active'));
+    button.classList.add('active');
+    await buildLandscape(Number(button.dataset.cubes));
+  });
+}
+
+// FPS counter (same idea as Level 1): average over half a second.
+const fpsLabel = document.getElementById('fps');
+let fpsTime = 0;
+let fpsFrames = 0;
+function updateFps(dt) {
+  if (!(dt > 0)) return;            // skip the first frame
+  fpsTime += dt;
+  fpsFrames++;
+  if (fpsTime >= 0.5) {
+    fpsLabel.textContent = `${Math.round(fpsFrames / fpsTime)} FPS · ${cubes.length.toLocaleString()} cubes`;
+    fpsTime = 0;
+    fpsFrames = 0;
+  }
+}
 
 // ---------------------------------------------------------------------
 // 4. MATRIX HELPERS
@@ -480,7 +533,7 @@ function draw(now) {
   // so cubes aren't squashed, and a visible range from 0.1 to 100 units
   // away from the camera. Anything outside that range is not drawn.
   const aspect = canvas.width / canvas.height;
-  gl.uniformMatrix4fv(uProjection, false, perspective(Math.PI / 4, aspect, 0.1, 100));
+  gl.uniformMatrix4fv(uProjection, false, perspective(Math.PI / 4, aspect, 0.1, Math.max(400, (mapRows + mapCols) * 2)));
 
   // View: the camera sits at (14, 14, 18) - up and off to one side -
   // looks at the center of the grid (0, 0, 0), and +y is "up".
@@ -507,7 +560,7 @@ function draw(now) {
     // sits at y = 0, so stretching it makes it grow upward.
     const model = multiply(
       translation(cube.x, 0, cube.z),
-      scaling(1, cube.height, 1),
+      scaling(1, cube.height * Number(heightSlider.value), 1),   // Height slider = tallest a cube can be
     );
 
     // Send this cube's uniforms to the shaders. They stay set until we
@@ -526,19 +579,23 @@ function draw(now) {
     gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
   }
 
+  updateFps(deltaTime);
   requestAnimationFrame(draw);
 }
 
 // Draw the scene once when the page loads. Nothing moves, so we don't
 // need to redraw again unless something changes.
-draw();
+requestAnimationFrame(draw);   // start the one and only render loop
 
 // Redraw if the browser window changes size: the canvas has a new
 // shape, so the viewport and aspect ratio must be updated.
 // (To animate, you would instead call draw() every frame with
 // requestAnimationFrame and change something - like the camera -
 // a little each time.)
-window.addEventListener('resize', draw);
+// Removed: draw() already loops with requestAnimationFrame and resizes the
+// canvas every frame. Calling it on resize started an EXTRA loop each time,
+// which stacked up and tanked the FPS.
+// window.addEventListener('resize', draw);
 
 function main(){
   // I think this will essentially be Calling draw in the request loop
@@ -561,32 +618,35 @@ document.addEventListener("keydown", (event) => {
     const rejection = subtract(a, projBonA);
     const forward = normalize(rejection); 
 
-    switch (event.key) {
+  const step = Number(moveSpeedSlider.value);   // camera speed slider
+  const forwardStep = scale(forward, step);
+  const sideStep = scale(perp, step);
+  switch (event.key) {
     case "w":
-      cameraVec3 = add(cameraVec3, forward);
-      lookAtVec3 = add(lookAtVec3, forward);
+      cameraVec3 = add(cameraVec3, forwardStep);
+      lookAtVec3 = add(lookAtVec3, forwardStep);
       break;
     case "a":
-      cameraVec3 = subtract(cameraVec3, perp);
-      lookAtVec3 = subtract(lookAtVec3, perp);
+      cameraVec3 = subtract(cameraVec3, sideStep);
+      lookAtVec3 = subtract(lookAtVec3, sideStep);
     break;
       case "s":
-      cameraVec3 = subtract(cameraVec3, forward);
-      lookAtVec3 = subtract(lookAtVec3, forward);
+      cameraVec3 = subtract(cameraVec3, forwardStep);
+      lookAtVec3 = subtract(lookAtVec3, forwardStep);
     break;
       case "d":
-      cameraVec3 = add(cameraVec3, perp);
-      lookAtVec3 = add(lookAtVec3, perp);
+      cameraVec3 = add(cameraVec3, sideStep);
+      lookAtVec3 = add(lookAtVec3, sideStep);
     break;
     case "ArrowUp":
       //****TO DO: Change camera z position go further away
-      cameraVec3[Y] += 1; // Down is Z decrement
-      lookAtVec3[Y] += 1
+      cameraVec3[Y] += step; // Down is Z decrement
+      lookAtVec3[Y] += step;
     break;
     case "ArrowDown":
       //****TO DO: Change camera z position go further away
-      cameraVec3[Y] -= 1; // Down is Z decrement
-      lookAtVec3[Y] -= 1;
+      cameraVec3[Y] -= step; // Down is Z decrement
+      lookAtVec3[Y] -= step;
     break;
     // Reset with shift R
     case 'R':
@@ -606,6 +666,7 @@ document.addEventListener("keydown", (event) => {
 var isHolding = false;
 // Start the continuous loop
 document.addEventListener('mousedown', (e) => {
+  if (e.target.closest('#controls')) return;   // clicking a slider/button shouldn't swing the camera
   if (e.button !== 0) return;
     isHolding = true;
 });

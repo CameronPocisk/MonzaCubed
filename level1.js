@@ -53,6 +53,9 @@ const vertexShaderSource = /* glsl */`
   uniform mat4 uView;         // where the camera is and where it looks
   uniform mat4 uProjection;   // perspective: far things look smaller
 
+  uniform vec3 uColor;
+  varying vec3 vColor;
+
   varying vec3 vNormal;       // handed to the fragment shader
   // The varying output gets Barycentriced by the fragment shader
   // So the varying values get Interpolated into one value from
@@ -63,6 +66,8 @@ const vertexShaderSource = /* glsl */`
     // stretched and moved, never rotated, so this changes nothing here.
     // It would matter if you added rotation.
     vNormal = normalize(mat3(uModel) * aNormal);
+    vec3 bottomColor = vec3(0.05, 0.05, 0.15);          // dark navy
+    vColor = mix(bottomColor, uColor, aPosition.y);     // y=0 → bottom, y=1 → uColor
 
     // model -> world -> camera -> screen.
     // Read right to left: first place the cube in the world (uModel),
@@ -74,7 +79,7 @@ const vertexShaderSource = /* glsl */`
 const fragmentShaderSource = /* glsl */`
   precision mediump float;    // how accurate decimal numbers are (medium is plenty)
 
-  uniform vec3 uColor;        // this cube's color (red, green, blue: 0..1)
+  varying vec3 vColor;        // received from the vertex shader
   varying vec3 vNormal;       // received from the vertex shader
 
   void main() {
@@ -98,7 +103,7 @@ const fragmentShaderSource = /* glsl */`
 
     // gl_FragColor is the built-in output: the final color of this pixel.
     // Multiplying the cube's color by light darkens it on dim faces.
-    gl_FragColor = vec4(uColor * light, 1.0);   // 1.0 = fully opaque
+    gl_FragColor = vec4(vColor * light, 1.0);   // 1.0 = fully opaque
   }
 `;
 
@@ -268,21 +273,30 @@ const uColor = gl.getUniformLocation(program, 'uColor');
 //    The cubes are laid out in a GRID_SIZE × GRID_SIZE grid on the
 //    ground plane (y = 0), centered on the origin.
 // ---------------------------------------------------------------------
-const GRID_SIZE = 100;   //bigger
+
+//const GRID_SIZE = 100;   //bigger
 // const GRID_SIZE = 10;    // 10 × 10 = 100 cubes
 const SPACING = 1.0;    // distance between cube ce// nters
 
-const cubes = [];
-for (let row = 0; row < GRID_SIZE; row++) {
-  for (let col = 0; col < GRID_SIZE; col++) {
-    cubes.push({
-      x: (col - (GRID_SIZE - 1) / 2) * SPACING,
-      z: (row - (GRID_SIZE - 1) / 2) * SPACING,
-      height: 0.5 + Math.random() * 4,                        // 0.5 to 4.5
-      color: [Math.random(), Math.random(), Math.random()],   // random RGB
-    });
+let cubes = [];
+let gridSize = 100;   // current grid is gridSize × gridSize (the camera uses this too)
+
+function buildGrid(size){
+  gridSize = size;
+  cubes=[];
+  for (let row = 0; row < size; row++) {
+    for (let col = 0; col < size; col++) {
+      cubes.push({
+        x: (col - (size - 1) / 2) * SPACING,
+        z: (row - (size - 1) / 2) * SPACING,
+        height: 0.5 + Math.random() * 4,                        // 0.5 to 4.5
+        color: [Math.random(), Math.random(), Math.random()],   // random RGB
+      });
+    }
   }
 }
+
+buildGrid(gridSize);   // start with the default 100 × 100 grid
 
 
 // ---------------------------------------------------------------------
@@ -386,7 +400,21 @@ function lookAt(eye, target, up) {
 //    are already sitting in the GPU buffer. Each cube costs us only a
 //    few uniforms plus one draw call.
 // ---------------------------------------------------------------------
-function draw() {
+// Camera orbit state: the angle only grows while playing, so pausing
+// freezes it in place and playing resumes from the same spot.
+let angle = 0;
+let lastTime = 0;
+let playing = true;
+
+const playPauseButton = document.getElementById('playPause');
+const speedSlider = document.getElementById('speed');
+
+playPauseButton.addEventListener('click', () => {
+  playing = !playing;
+  playPauseButton.textContent = playing ? 'Pause' : 'Play';
+});
+
+function draw(now) {
   // --- a. Size the drawing area -------------------------------------
   // A canvas has two sizes: how big it looks on the page (set by CSS),
   // and how many pixels it actually has. If they don't match, the
@@ -425,7 +453,7 @@ function draw() {
   // so cubes aren't squashed, and a visible range from 0.1 to 100 units
   // away from the camera. Anything outside that range is not drawn.
   const aspect = canvas.width / canvas.height;
-  gl.uniformMatrix4fv(uProjection, false, perspective(Math.PI / 4, aspect, 0.1, 100));
+  gl.uniformMatrix4fv(uProjection, false, perspective(Math.PI / 4, aspect, 0.1, (gridSize * 3 + 50) * Math.max(zoom, 1)));
 
   // View: the camera sits at (14, 14, 18) - up and off to one side -
   // looks at the center of the grid (0, 0, 0), and +y is "up".
@@ -435,7 +463,18 @@ function draw() {
   // WebGL requires it to be false.)
   // function lookAt(eye, target, up) { // I think up is a normal vector
   // gl.uniformMatrix4fv(uView, false, lookAt([14, 14, 18], [0, 0, 0], [0, 1, 0]));
-  gl.uniformMatrix4fv(uView, false, lookAt([20, 75, 20], [0, 0, 0], [0, 1, 0]));
+
+  const dt = lastTime ? (now - lastTime) / 1000 : 0;  // seconds since last frame (0 on the first frame)
+  lastTime = now;
+  if (playing) angle += dt * 0.2 * Number(speedSlider.value);
+
+
+  // Scale the orbit with the grid so small and big grids both fit on screen
+  // zoom < 1 moves the camera closer, zoom > 1 moves it farther away
+  const radius = (gridSize * 0.9 + 5) * zoom;
+  const height = (gridSize * 0.3 + 5) * zoom;
+  const eye= [radius* Math.cos(angle), height, radius * Math.sin(angle)];
+  gl.uniformMatrix4fv(uView, false, lookAt(eye, [0, 0, 0], [0, 1, 0]));
 
   // --- d. Draw every cube -------------------------------------------
   // Draw every cube: same triangles each time, different uniforms.
@@ -463,17 +502,75 @@ function draw() {
     //   2. figures out which pixels each triangle covers
     //   3. runs the fragment shader once per covered pixel to color it
     //   4. uses the depth test to keep only the closest pixels
-    gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
+    gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);  
   }
+  updateFps(dt);
+  requestAnimationFrame(draw);
 }
 
 // Draw the scene once when the page loads. Nothing moves, so we don't
 // need to redraw again unless something changes.
-draw();
+
+// Adi change- making it so the camera moves around the center of the grid so Prof Aurisano
+// can see the cubes from different angles. This is done by changing the camera position based on time.
+
+// Zoom: scales the camera's distance from the center of the grid.
+// Buttons step it, and the mouse wheel / trackpad scroll does it smoothly.
+let zoom = 1;
+const MIN_ZOOM = 0.2;
+const MAX_ZOOM = 3;
+function setZoom(value) {
+  zoom = Math.min(MAX_ZOOM, Math.max(MIN_ZOOM, value));   // keep it in range
+}
+document.getElementById('zoomIn').addEventListener('click', () => setZoom(zoom * 0.8));
+document.getElementById('zoomOut').addEventListener('click', () => setZoom(zoom * 1.25));
+document.getElementById('zoomReset').addEventListener('click', () => setZoom(1));
+canvas.addEventListener('wheel', (event) => {
+  event.preventDefault();                          // don't scroll the page
+  setZoom(zoom * Math.exp(event.deltaY * 0.001));  // scroll down = zoom out
+}, { passive: false });
+
+// Getting the Grid Size
+const gridSizeInput = document.getElementById('gridSize');
+gridSizeInput.addEventListener('change', (event) => {
+  const newSize = parseInt(event.target.value);
+  if (!isNaN(newSize) && newSize > 0) {
+    buildGrid(Math.min(newSize, 300));   // cap it so the browser doesn't freeze
+  }
+});
+
+// Preset buttons (10, 50, 100, 200) for quickly comparing resolutions
+for (const button of document.querySelectorAll('.gridPreset[data-size]')) {
+  button.addEventListener('click', () => {
+    const size = Number(button.dataset.size);
+    gridSizeInput.value = size;
+    buildGrid(size);
+  });
+}
+
+// FPS counter: average the frame times and update the text twice a second,
+// so we can measure performance at each grid size.
+const fpsLabel = document.getElementById('fps');
+let fpsTime = 0;
+let fpsFrames = 0;
+function updateFps(dt) {
+  fpsTime += dt;
+  fpsFrames++;
+  if (fpsTime >= 0.5) {
+    fpsLabel.textContent = `${Math.round(fpsFrames / fpsTime)} FPS · ${cubes.length.toLocaleString()} cubes`;
+    fpsTime = 0;
+    fpsFrames = 0;
+  }
+}
+
+requestAnimationFrame(draw);
+
 
 // Redraw if the browser window changes size: the canvas has a new
 // shape, so the viewport and aspect ratio must be updated.
 // (To animate, you would instead call draw() every frame with
 // requestAnimationFrame and change something - like the camera -
 // a little each time.)
-window.addEventListener('resize', draw);
+
+// Commenting this out as we are animating the camera now, so we don't need to redraw on resize
+// window.addEventListener('resize', draw);

@@ -1,0 +1,126 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Project 2: Monza Cubed</title>
+
+  <style>
+    /* ---- Colors used everywhere---- */
+    :root {
+      --bg: #111214;        /* page background */
+      --panel: #1b1d21;     /* header / tab bar background */
+      --text: #e9e9ea;
+      --muted: #9a9ca3;     /* secondary text */
+      --accent: #d40000;    /* Ferrari / Monza red */
+    }
+
+    /* ---- Page layout: header, tabs, then the level fills the rest ---- */
+    html, body { margin: 0; height: 100%; }
+    body {
+      display: flex;
+      flex-direction: column;   /* stack header, nav, iframe top to bottom */
+      background: var(--bg);
+      color: var(--text);
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    }
+
+    /* ---- Header ---- */
+    header {
+      background: var(--panel);
+      padding: 16px 24px 12px;
+      border-top: 4px solid var(--accent);   /* red racing stripe */
+      overflow: hidden;
+      max-height: 300px;                     /* tall enough for the text */
+      transition: max-height 0.35s ease, padding 0.35s ease, opacity 0.25s ease;
+    }
+    /* Collapsed: squeeze the header down to nothing */
+    header.hidden {
+      max-height: 0;
+      padding-top: 0;
+      padding-bottom: 0;
+      opacity: 0;
+    }
+    h1 { margin: 0; font-size: 1.6rem; letter-spacing: 0.02em; }
+    h2 { margin: 4px 0 8px; font-size: 1rem; font-weight: 500; color: var(--muted); }
+    header p { margin: 0; max-width: 75ch; line-height: 1.45; color: var(--muted); font-size: 0.95rem; }
+
+    /* ---- Tab bar ---- */
+    nav {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      padding: 10px 24px;
+      background: var(--panel);
+      border-bottom: 1px solid #2c2f35;
+    }
+    nav button {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid #3a3d44;
+      border-radius: 6px;
+      padding: 6px 14px;
+      font: inherit;
+      font-size: 0.9rem;
+      cursor: pointer;
+    }
+    nav button:hover { color: var(--text); border-color: var(--muted); }
+    #toggleHeader { margin-left: auto; }   /* push to the right end of the tab bar */
+    nav button.active {             /* the level currently showing */
+      background: var(--accent);
+      border-color: var(--accent);
+      color: white;
+    }
+
+    /* ---- The level itself ---- */
+    iframe {
+      flex: 1;          /* take up all remaining height */
+      width: 100%;
+      border: 0;
+      background: black;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Project 2: Monza Cubed</h1>
+    <h2>Project Members: Cameron Pocisk, Aditya Pawar</h2>
+    <p>This is a simple WebGL application that renders a grid of cubes. As the level builds, the cubes will be dynamically generated based on the height map. Level 3 and 4 will showcase a Bezier Curve with a car and another object following the track!</p>
+  </header>
+
+  <nav>
+    <button data-level="level0.html" class="active">Level 0</button>
+    <button data-level="level1.html">Level 1</button>
+    <button data-level="level2.html">Level 2</button>
+    <button data-level="level3.html">Level 3</button>
+    <button data-level="level4.html">Level 4</button>
+    <button id="toggleHeader">Hide info ▲</button>
+  </nav>
+
+  <!-- Each level is its own page; the buttons just swap which one shows here -->
+  <iframe id="levelFrame" src="level0.html"></iframe>
+
+  <script>
+    const frame = document.getElementById('levelFrame');
+    const buttons = document.querySelectorAll('nav button[data-level]');
+
+    for (const button of buttons) {
+      button.addEventListener('click', () => {
+        frame.src = button.dataset.level;              // load that level
+        buttons.forEach(b => b.classList.remove('active'));
+        button.classList.add('active');                // highlight this tab
+        frame.focus();                                 // so WASD keys go to the level
+      });
+    }
+
+    // Show / hide the header so the level gets the whole screen
+    const header = document.querySelector('header');
+    const toggle = document.getElementById('toggleHeader');
+    toggle.addEventListener('click', () => {
+      const hidden = header.classList.toggle('hidden');   // returns true if now hidden
+      toggle.textContent = hidden ? 'Show info ▼' : 'Hide info ▲';
+      frame.focus();
+    });
+  </script>
+</body>
+</html>

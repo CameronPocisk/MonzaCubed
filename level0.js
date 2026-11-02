@@ -324,10 +324,7 @@ function main(){
         return;
     }
 
-    canvas.width = canvas.clientWidth;
-    canvas.height = canvas.clientHeight;
-    gl.viewport(0, 0, canvas.width, canvas.height);
-
+  
     // Web GL base tutorial (init webgl Canvas)
     // gl.clearColor(1.0, 1.0, 1.0, 1.0) // I like a white bkg
     gl.clearColor(0.0, 0.0, 0.0, 1.0) // black Bkg
@@ -359,6 +356,11 @@ function main(){
 
     // Draw the scene repeatedly
     function render(now) {
+
+        canvas.width = canvas.clientWidth;
+        canvas.height = canvas.clientHeight;
+        gl.viewport(0, 0, canvas.width, canvas.height);
+
         // Figure out time change
         now *= 0.001; // convert to seconds
         deltaTime = now - then;
