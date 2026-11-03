@@ -94,6 +94,7 @@
     <button data-level="level2.html">Level 2</button>
     <button data-level="level3.html">Level 3</button>
     <button data-level="level4.html">Level 4</button>
+    <button data-level="level4fun.html">Level 4 (Fun/Bonus)</button>
     <button id="toggleHeader">Hide info ▲</button>
   </nav>
 
@@ -104,14 +105,21 @@
     const frame = document.getElementById('levelFrame');
     const buttons = document.querySelectorAll('nav button[data-level]');
 
-    for (const button of buttons) {
-      button.addEventListener('click', () => {
-        frame.src = button.dataset.level;              // load that level
-        buttons.forEach(b => b.classList.remove('active'));
-        button.classList.add('active');                // highlight this tab
-        frame.focus();                                 // so WASD keys go to the level
-      });
+    function showLevel(file) {
+      frame.src = file;                                // load that level
+      buttons.forEach(b => b.classList.toggle('active', b.dataset.level === file));   // highlight its tab
+      location.hash = file;                            // remember it in the URL (survives a reload)
+      frame.focus();                                   // so WASD keys go to the level
     }
+
+    for (const button of buttons) {
+      button.addEventListener('click', () => showLevel(button.dataset.level));
+    }
+
+    // When the page reloads (Live Server reloads it every time a file in the
+    // folder is saved), go back to the level in the URL instead of Level 0.
+    const remembered = location.hash.slice(1);
+    if ([...buttons].some(b => b.dataset.level === remembered)) showLevel(remembered);
 
     // Show / hide the header so the level gets the whole screen
     const header = document.querySelector('header');

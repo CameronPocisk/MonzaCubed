@@ -27,7 +27,7 @@
     #controls .gridPreset { background: #333; min-width: 0; padding: 4px 8px; }
     #controls .gridPreset:hover { background: #555; }
     #controls .gridPreset.active { background: #d40000; }
-    #fps, #status { color: #9a9ca3; font-variant-numeric: tabular-nums; }
+    #fps, #status, #trackCount { color: #9a9ca3; font-variant-numeric: tabular-nums; }
     /* Instructions line along the bottom of the panel */
     #controls .hint { width: 100%; font-size: 12px; color: #9a9ca3; }
     #controls .hint .warn { color: #ffb347; }
@@ -45,19 +45,40 @@
       <button class="gridPreset resolution" data-cubes="20000">20k</button>
       <button class="gridPreset resolution" data-cubes="40000">40k</button>
     </span>
-    <label>Height <input type="range" id="heightScale" min="0" max="40" step="1" value="20"></label>
+    <label>Height <input type="range" id="heightScale" min="0" max="40" step="1" value="10"></label>
     <label>Camera speed <input type="range" id="moveSpeed" min="0.2" max="5" step="0.1" value="1"></label>
+    <label><input type="checkbox" id="showTrack" checked> Track</label>
+    <label><input type="checkbox" id="showControl"> Control points</label>
+    <label>Sun <input type="range" id="sunAngle" min="5" max="175" step="1" value="60"></label>
+    <label>Fog <input type="range" id="fogDensity" min="0" max="0.03" step="0.001" value="0.004"></label>
+    <label><input type="checkbox" id="showScenery" checked> Scenery</label>
+    <span class="presets">
+      <span>Camera</span>
+      <button class="gridPreset camMode active" data-cam="free">Free</button>
+      <button class="gridPreset camMode" data-cam="chase">Chase</button>
+      <button class="gridPreset camMode" data-cam="onboard">Onboard</button>
+      <button class="gridPreset camMode" data-cam="heli">Helicopter</button>
+      <button class="gridPreset camMode" data-cam="blimp">Blimp</button>
+    </span>
+    <span class="presets">
+      <button class="gridPreset" id="prevCar">◀</button>
+      <span id="followLabel">Car 1</span>
+      <button class="gridPreset" id="nextCar">▶</button>
+    </span>
     <span id="status"></span>
+    <span id="trackCount"></span>
     <span id="fps">– FPS</span>
-    <div class="hint">WASD to move · ↑/↓ to raise or lower · Click and drag to look · Shift+R to reset ·
+    <div class="hint">Scroll to zoom in/out · ◀ ▶ picks the car the cameras follow · Free camera: WASD, ↑/↓, click and drag to look, Shift+R to reset ·
       <span class="warn">⚠ Higher resolutions need a fast computer</span></div>
   </div>
 
+    <!-- Bezier control points exported from Blender (defines TRACK_SEGMENTS) -->
+    <script src="track_points.js"></script>
     <script type="module" src="ColorAndHeightImageToArr.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/gl-matrix-min.js"></script>
+    <!-- m4.js: matrix helpers used by the skybox code -->
     <script src="https://webglfundamentals.org/webgl/resources/webgl-utils.js"></script>
     <script src="https://webglfundamentals.org/webgl/resources/m4.js"></script>
-    
     <script type="module" src="level4.js"></script>
 </body>
 </html>

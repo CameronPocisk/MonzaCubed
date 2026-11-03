@@ -364,17 +364,92 @@ function groundHeightAt(x, z) {
 
 // Evaluate one cubic Bezier segment at t (same formula as above).
 function bezier(p0, p1, p2, p3, t) {
-  const u = 1 - t;
-  const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+  const u = 1 - t; // u= 1-t, so u+t = 1.0
+  const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t; // weights for each control point
   return [
-    a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0],
-    a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1],
+    a * p0[0] + b * p1[0] + c * p2[0] + d * p3[0], // x in world space is Blender's x
+    a * p0[1] + b * p1[1] + c * p2[1] + d * p3[1], // z in world space is Blender's z, not y
   ];
 }
 
+function bezier3(p0, p1, p2, p3, t) {
+  const u = 1 - t;
+  const a = u * u * u, b = 3 * u * u * t, c = 3 * u * t * t, d = t * t * t;
+
+  return [ a*p0[0] + b*p1[0] + c*p2[0] + d*p3[0],  //x
+  a*p0[1] + b*p1[1] + c*p2[1] + d*p3[1], //y
+  a*p0[2] + b*p1[2] + c*p2[2] + d*p3[2] ]; //z
+}
+
+function bezierTangent3(p0, p1, p2, p3, t) {
+  const u = 1 - t;
+
+  // Weights for the three ARROWS between control points
+  // (these are the derivatives of bezier3's weights)
+  const w1 = 3 * u * u;   // how much of (P1 - P0)
+  const w2 = 6 * u * t;   // how much of (P2 - P1)
+  const w3 = 3 * t * t;   // how much of (P3 - P2)
+
+  return [
+    w1 * (p1[0] - p0[0]) + w2 * (p2[0] - p1[0]) + w3 * (p3[0] - p2[0]),   // x
+    w1 * (p1[1] - p0[1]) + w2 * (p2[1] - p1[1]) + w3 * (p3[1] - p2[1]),   // y
+    w1 * (p1[2] - p0[2]) + w2 * (p2[2] - p1[2]) + w3 * (p3[2] - p2[2]),   // z
+  ];
+}
+
+ 
+
+const BLIMP_PATH = [
+     [-60, 40,  30],   // P0: off the map on the left
+     [-10, 50,  70],   // P1: handle
+     [ 10, 35, -70],   // P2: handle
+     [ 60, 42, -30],   // P3: off the map on the right
+   ];
+let blimpT = 0;     // where along the curve the blimp is (0..1)
+
+// The race: 20 cars, each with its OWN state (that's why this lives outside
+// draw() - it has to remember where every car is between frames).
+//   s     - 0..44: which Bezier segment the car is on + t within it
+//   speed - segments per second (each car slightly different)
+//   lane  - -1..1: how far left/right of the center line it drives
+const NUM_CARS = 20;
+const GRID_GAP = 0.5;          // starting gap between cars, in segments
+const LANE_WIDTH = 0.9;        // world units from the center line at lane = +/-1
+const cars = [];
+for (let i = 0; i < NUM_CARS; i++) {
+  cars.push({
+    // staggered grid: car 0 on the start line, the others lined up behind it
+    s: (TRACK_SEGMENTS.length - i * GRID_GAP) % TRACK_SEGMENTS.length,
+    speed: 0.55 + Math.random() * 0.1,
+    lane: i % 2 === 0 ? -0.5 : 0.5,    // two columns, like a real F1 grid
+  });
+}
+
+
+let trackCenter = [0, 0];   // middle of the track (average of its anchor points), set in buildTrack
 let trackCubes = [];     // small red cubes sampled along the curve
 let controlCubes = [];   // the control points themselves (for explaining Beziers)
 const TRACK_SPACING = 0.5;   // aim for a cube every half unit along the track
+
+// Road shape (world units)
+const ROAD_HALF_WIDTH = 1.4;     // center line to edge: wide enough for 2 cars side by side
+const ROAD_THICKNESS = 0.15;
+const LINE_WIDTH = 0.12;         // white edge lines
+const ASPHALT = [0.13, 0.13, 0.14];
+const LINE_WHITE = [0.95, 0.95, 0.95];
+
+// The road is wider than one ground cube, and the ground under it is bumpy.
+// So we lay the road on the HIGHEST ground cube near this spot - that way
+// it never sinks into the landscape. Cars use the same height to drive on.
+function roadHeightAt(x, z) {
+  let highest = 0;
+  for (const dx of [-1, 0, 1]) {
+    for (const dz of [-1, 0, 1]) {
+      highest = Math.max(highest, groundHeightAt(x + dx * ROAD_HALF_WIDTH, z + dz * ROAD_HALF_WIDTH));
+    }
+  }
+  return highest;
+}
 
 function buildTrack() {
   trackCubes = [];
@@ -390,9 +465,13 @@ function buildTrack() {
     const steps = Math.max(2, Math.ceil(roughLength / TRACK_SPACING));
 
     // t from 0 up to (but not including) 1; the next segment starts at t = 0
+    // The same segment as 3D points on the ground (y = 0), so we can reuse
+    // bezier3 / bezierTangent3 - the tangent tells each road piece which way to face.
+    const pts3 = [p0, p1, p2, p3].map(([x, z]) => [x, 0, z]);
     for (let i = 0; i < steps; i++) {
-      const [x, z] = bezier(p0, p1, p2, p3, i / steps);
-      trackCubes.push({ x, z, ground: groundHeightAt(x, z) });
+      const [x, , z] = bezier3(...pts3, i / steps);
+      const dir = bezierTangent3(...pts3, i / steps);
+      trackCubes.push({ x, z, dir, ground: roadHeightAt(x, z) });
     }
 
     // P0/P3 are on the curve (anchors), P1/P2 are the handles.
@@ -400,6 +479,15 @@ function buildTrack() {
     controlCubes.push({ x: p1[0], z: p1[1], ground: groundHeightAt(...p1), anchor: false });
     controlCubes.push({ x: p2[0], z: p2[1], ground: groundHeightAt(...p2), anchor: false });
   }
+  // Center of the track = average of every segment's starting anchor (P0)
+  let cx = 0, cz = 0;
+  for (const segment of TRACK_SEGMENTS) {
+    const [x, z] = blenderToWorld(segment[0]);
+    cx += x;
+    cz += z;
+  }
+  trackCenter = [cx / TRACK_SEGMENTS.length, cz / TRACK_SEGMENTS.length];
+
   trackCountLabel.textContent = `${TRACK_SEGMENTS.length} Bezier segments · ${trackCubes.length} track cubes`;
 }
 
@@ -553,6 +641,170 @@ function lookAt(eye, target, up) {
   ];
 }
 
+// Like lookAt, but for placing an OBJECT: its +z (nose) points from `eye` toward `target`.
+function targetTo(eye, target, up) {
+  const zAxis = normalize(subtract(target, eye));   // nose direction (note: target − eye)
+  const xAxis = normalize(cross(up, zAxis));        // the object's right side
+  const yAxis = cross(zAxis, xAxis);                // the object's up
+  return [
+    xAxis[0], xAxis[1], xAxis[2], 0,   // column 0: where the object's x axis points
+    yAxis[0], yAxis[1], yAxis[2], 0,   // column 1: its y axis
+    zAxis[0], zAxis[1], zAxis[2], 0,   // column 2: its z axis (nose)
+    eye[0],   eye[1],   eye[2],   1,   // column 3: where it is
+  ];
+}
+
+// =====================================================================
+//  THE BLIMP, built from cube parts
+// =====================================================================
+// The blimp is described in its OWN space ("blimp space"): it is 1 unit
+// long, its nose points toward +z, and its center is at the origin.
+// Every part is a cube that is scaled, rotated and moved into place in
+// blimp space. Then ONE matrix (from targetTo) puts the whole blimp into
+// the world, so all the parts move and turn together.
+//
+//   world position of a part = blimpMatrix * [extra rotation] * translate(center) * scale(size) * cube
+
+// Rotations around the x axis and the z axis (the blimp's long axis).
+function rotationX(angle) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return [1, 0, 0, 0,  0, c, s, 0,  0, -s, c, 0,  0, 0, 0, 1];
+}
+function rotationZ(angle) { // used for tail fins and propellers
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return [c, s, 0, 0,  -s, c, 0, 0,  0, 0, 1, 0,  0, 0, 0, 1];
+}
+
+// Our cube has its BOTTOM at y = 0 (it was made for the landscape).
+// Shift it down half a unit first so it is centered, then parts scale and
+// rotate around their own middle.
+const CENTER_CUBE = translation(0, -0.5, 0);
+
+function drawPart(objectMatrix, center, size, color, extraRotation = null) {
+  let part = multiply(translation(center[0], center[1], center[2]),
+                      multiply(scaling(size[0], size[1], size[2]), CENTER_CUBE));
+  if (extraRotation) part = multiply(extraRotation, part);
+  gl.uniformMatrix4fv(uModel, false, multiply(objectMatrix, part));
+  gl.uniform3fv(uColor, color);
+  gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
+}
+
+const BLIMP_LENGTH = 16;   // world units
+const BLIMP_WHITE = [0.94, 0.94, 0.96];
+const BLIMP_RED   = [0.82, 0.04, 0.06];
+const BLIMP_DARK  = [0.12, 0.12, 0.15];
+const BLIMP_GLASS = [0.35, 0.55, 0.75];
+
+// The envelope: 9 slices along the body. Each slice's radius follows an
+// ellipse, r(z) = R * sqrt(1 - (z / halfLength)^2), so the blimp is fat in
+// the middle and pointed at both ends. Each slice is drawn twice - once
+// straight and once rotated 45 degrees around the long axis - which turns
+// a square cross-section into an octagon (rounder from every angle).
+// Note: the rotated square's corners reach r * sqrt(2) from the axis, so parts
+// that hang under the body (gondola, engines) sit below ~0.21.
+const ENVELOPE = [];
+for (let k = -4; k <= 4; k++) {
+  const z = k * 0.105;
+  const r = 0.15 * Math.sqrt(1 - (z / 0.5) ** 2);
+  ENVELOPE.push({ z, r, color: k === 0 || k === 1 ? BLIMP_RED : BLIMP_WHITE });   // red band in the middle
+}
+
+function drawBlimp(blimpMatrix, time) {
+  // Envelope slices (octagonal)
+  for (const slice of ENVELOPE) {
+    const size = [slice.r * 2, slice.r * 2, 0.12];
+    drawPart(blimpMatrix, [0, 0, slice.z], size, slice.color);
+    drawPart(blimpMatrix, [0, 0, slice.z], size, slice.color, rotationZ(Math.PI / 4));
+  }
+  // Nose cap and tail tip
+  drawPart(blimpMatrix, [0, 0,  0.49], [0.06, 0.06, 0.04], BLIMP_DARK);
+  drawPart(blimpMatrix, [0, 0, -0.49], [0.05, 0.05, 0.04], BLIMP_WHITE);
+
+  // Tail fins in an X: the SAME fin, rotated around the long axis 4 times
+  for (let i = 0; i < 4; i++) {
+    const angle = Math.PI / 4 + i * Math.PI / 2;   // 45, 135, 225, 315 degrees
+    drawPart(blimpMatrix, [0, 0.15, -0.40], [0.012, 0.17, 0.13], BLIMP_RED, rotationZ(angle));
+  }
+
+  // Gondola (passenger cabin) under the middle, with a strip of windows
+  drawPart(blimpMatrix, [0, -0.225, 0.03], [0.075, 0.05, 0.19], BLIMP_DARK);
+  drawPart(blimpMatrix, [0, -0.218, 0.04], [0.078, 0.018, 0.15], BLIMP_GLASS);
+
+  // Two engine pods with spinning propellers (rotation over time)
+  const spin = time * 18;
+  for (const side of [-1, 1]) {
+    const pod = [side * 0.075, -0.215, -0.04];
+    drawPart(blimpMatrix, pod, [0.03, 0.03, 0.06], BLIMP_WHITE);
+    const hub = translation(pod[0], pod[1], pod[2] - 0.035);
+    drawPart(blimpMatrix, [0, 0, 0], [0.11, 0.008, 0.005], BLIMP_DARK, multiply(hub, rotationZ(spin)));
+  }
+}
+
+// =====================================================================
+//  TV HELICOPTERS: flying a shrunken, lifted copy of the track
+// =====================================================================
+// A Bezier curve is a weighted average of its control points, so if we
+// move every control point, the whole curve moves the same way. Here we
+// pull each of the track's control points toward the track's center
+// (by `shrink`) and lift it to `height`:
+//
+//   newPoint = center + (point - center) * shrink,   y = height
+//
+// That gives a smaller Monza floating above the infield, and a
+// helicopter flies along it with the same s = segment + t idea as the cars.
+
+// Rotation around y (turning left/right) - for the spinning main rotor.
+function rotationY(angle) {
+  const c = Math.cos(angle), s = Math.sin(angle);
+  return [c, 0, -s, 0,  0, 1, 0, 0,  s, 0, c, 0,  0, 0, 0, 1];
+}
+
+const HELICOPTERS = [
+  //   s: start segment   speed: segments/sec   dir: 1 = with the race, -1 = against it
+  { s: 0,  speed: 0.45, shrink: 0.8, height: 22, dir:  1 },
+  { s: 22, speed: 0.35, shrink: 0.6, height: 30, dir: -1 },
+];
+const HELI_LENGTH = 5;   // world units
+
+// Control points of segment `seg` of the shrunken, lifted track (3D world points)
+function heliSegmentPoints(seg, shrink, height) {
+  return TRACK_SEGMENTS[seg].map(p => {
+    const [x, z] = blenderToWorld(p);
+    return [
+      trackCenter[0] + (x - trackCenter[0]) * shrink,
+      height,
+      trackCenter[1] + (z - trackCenter[1]) * shrink,
+    ];
+  });
+}
+
+const HELI_BLUE  = [0.08, 0.18, 0.45];
+const HELI_GLASS = [0.55, 0.75, 0.90];
+const HELI_GREY  = [0.30, 0.30, 0.32];
+
+// The helicopter in its own space: 1 unit long, nose toward +z, skids at y = 0.
+function drawHelicopter(heliMatrix, time) {
+  drawPart(heliMatrix, [0, 0.20, 0.06],  [0.22, 0.22, 0.36], HELI_BLUE);    // cabin
+  drawPart(heliMatrix, [0, 0.18, 0.27],  [0.18, 0.15, 0.10], HELI_GLASS);   // windscreen
+  drawPart(heliMatrix, [0, 0.24, -0.30], [0.06, 0.06, 0.42], HELI_BLUE);    // tail boom
+  drawPart(heliMatrix, [0, 0.32, -0.50], [0.02, 0.16, 0.08], BLIMP_WHITE);  // tail fin
+  for (const side of [-1, 1]) {
+    drawPart(heliMatrix, [side * 0.12, 0.02, 0.06], [0.03, 0.02, 0.42], HELI_GREY);   // skids
+    drawPart(heliMatrix, [side * 0.08, 0.07, 0.06], [0.08, 0.02, 0.02], HELI_GREY);   // struts
+  }
+  drawPart(heliMatrix, [0, 0.335, 0.06], [0.04, 0.05, 0.04], HELI_GREY);    // rotor mast
+  drawPart(heliMatrix, [0, 0.18, 0.27],  [0.05, 0.05, 0.08], BLIMP_DARK);   // TV camera pod
+
+  // Main rotor: two blades spinning around the mast (rotation over time)
+  const hub = translation(0, 0.365, 0.06);
+  drawPart(heliMatrix, [0, 0, 0], [1.05, 0.012, 0.05], BLIMP_DARK, multiply(hub, rotationY(time * 25)));
+  drawPart(heliMatrix, [0, 0, 0], [1.05, 0.012, 0.05], BLIMP_DARK, multiply(hub, rotationY(time * 25 + Math.PI / 2)));
+  // Tail rotor: spinning around x, on the side of the fin
+  const tailHub = translation(0.025, 0.32, -0.52);
+  drawPart(heliMatrix, [0, 0, 0], [0.01, 0.18, 0.03], BLIMP_DARK, multiply(tailHub, rotationX(time * 40)));
+}
+
+
 // globals we are going to be using for draw
 var deltaTime = 0;
 var then = 0;
@@ -600,8 +852,8 @@ function draw(now) {
   // --- b. Wipe the previous picture ---------------------------------
   // clearColor only CHOOSES the color to clear with: black
   // (red, green, blue, alpha). Nothing is cleared until gl.clear().
-  gl.clearColor(0, 0, 0, 1);
-
+  //gl.clearColor(0, 0, 0, 1);
+  gl.clearColor(0.55, 0.75, 0.95, 1)
   // Depth testing makes near cubes hide far cubes, no matter which
   // order we draw them in. Each frame we clear the depth info too.
   //
@@ -672,15 +924,45 @@ function draw(now) {
   // Each sample is a small flat cube: moved to its spot on the curve and
   // lifted to sit just above the ground cube underneath it.
   const heightScale = Number(heightSlider.value);
-  if (showTrackBox.checked) {
-    gl.uniform3fv(uColor, [1.0, 0.05, 0.05]);   // Monza red
+  // (trackCubes is empty until the landscape has loaded - skip until then)
+  if (showTrackBox.checked && trackCubes.length) {
     for (const c of trackCubes) {
-      const model = multiply(
-        translation(c.x, c.ground * heightScale + 0.05, c.z),
-        scaling(0.7, 0.25, 0.7),
-      );
-      gl.uniformMatrix4fv(uModel, false, model);
+      // Place + turn this piece of road to face along the curve (targetTo, like the blimp).
+      // In the piece's own space: x = across the road, z = along it, y = up.
+      const y = c.ground * heightScale;
+      const piece = targetTo([c.x, y, c.z], [c.x + c.dir[X], y, c.z + c.dir[Z]], [0, 1, 0]);
+
+      // Asphalt: one flat slab across the whole width, a bit longer than the
+      // gap to the next sample so the pieces overlap with no holes.
+      gl.uniformMatrix4fv(uModel, false,
+        multiply(piece, scaling(ROAD_HALF_WIDTH * 2, ROAD_THICKNESS, TRACK_SPACING * 1.6)));
+      gl.uniform3fv(uColor, ASPHALT);
       gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
+
+      // White lines on both edges: slightly taller so they sit on top of the asphalt
+      gl.uniform3fv(uColor, LINE_WHITE);
+      for (const side of [-1, 1]) {
+        gl.uniformMatrix4fv(uModel, false, multiply(piece, multiply(
+          translation(side * (ROAD_HALF_WIDTH - LINE_WIDTH), 0, 0),
+          scaling(LINE_WIDTH, ROAD_THICKNESS + 0.02, TRACK_SPACING * 1.6))));
+        gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
+      }
+    }
+
+    // Start / finish line: a checkerboard across the road where segment 0 begins
+    const start = trackCubes[0];
+    const startY = start.ground * heightScale;
+    const startPiece = targetTo([start.x, startY, start.z],
+                                [start.x + start.dir[X], startY, start.z + start.dir[Z]], [0, 1, 0]);
+    const SQUARES = 8, sq = (ROAD_HALF_WIDTH * 2) / SQUARES;
+    for (let row = 0; row < 2; row++) {
+      for (let i = 0; i < SQUARES; i++) {
+        gl.uniform3fv(uColor, (i + row) % 2 === 0 ? LINE_WHITE : [0.02, 0.02, 0.02]);
+        gl.uniformMatrix4fv(uModel, false, multiply(startPiece, multiply(
+          translation(-ROAD_HALF_WIDTH + sq * (i + 0.5), 0, (row - 0.5) * sq),
+          scaling(sq, ROAD_THICKNESS + 0.03, sq))));
+        gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
+      }
     }
   }
 
@@ -696,6 +978,136 @@ function draw(now) {
       gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
     }
   }
+
+  // Blimp 
+
+  blimpT += deltaTime / 60;
+  if (blimpT > 1) blimpT -= 1;   // loop back to the start
+  const blimpPos = bezier3(...BLIMP_PATH, blimpT);
+  const tangent  = bezierTangent3(...BLIMP_PATH, blimpT);          // which way it's moving
+  const target   = [blimpPos[X] + tangent[X],                       // a point just ahead of it
+                    blimpPos[Y] + tangent[Y],
+                    blimpPos[Z] + tangent[Z]];
+  // targetTo places + turns the blimp; scaling makes "1 blimp unit" = BLIMP_LENGTH world units
+  const blimpMatrix = multiply(targetTo(blimpPos, target, [0, 1, 0]),
+                               scaling(BLIMP_LENGTH, BLIMP_LENGTH, BLIMP_LENGTH));
+  drawBlimp(blimpMatrix, now);
+
+  // Cars
+  // Wait until the landscape has loaded: the cars need the ground heights
+  // (heightGrid) to sit on, and crashing here would stop the whole draw loop.
+  if (heightGrid.length) {
+    const dt = Math.min(deltaTime, 0.05);   // cap, so switching tabs can't teleport cars
+    for (const car of cars) {
+      // Chaos: every frame each car's pace and lane drift a little at random
+      car.speed += (Math.random() - 0.5) * 0.6 * dt;
+      car.speed = Math.min(Math.max(car.speed, 0.45), 0.75);   // keep it within limits
+      car.lane += (Math.random() - 0.5) * 3 * dt;
+      car.lane = Math.min(Math.max(car.lane, -1), 1);
+
+      car.s += dt * car.speed;   // move forward a little every frame
+      if (car.s >= TRACK_SEGMENTS.length) car.s -= TRACK_SEGMENTS.length;   // finished a lap
+      const seg = Math.floor(car.s);
+      const t = car.s - seg;
+
+      // This segment's 4 control points, in world space, as 3D points on the ground (y = 0)
+      const pts = TRACK_SEGMENTS[seg].map(p => {
+        const [x, z] = blenderToWorld(p);
+        return [x, 0, z];
+      });
+
+      const carPos = bezier3(...pts, t);         // where on the center line
+      const carDir = bezierTangent3(...pts, t);  // which way the track goes here
+      const roadGround = roadHeightAt(carPos[X], carPos[Z]);   // road height here (before moving to a lane)
+
+      // Lanes: push the car sideways, perpendicular to the track direction.
+      // cross(up, direction) points to the car's side (left/right).
+      const side = normalize(cross([0, 1, 0], carDir));
+      carPos[X] += side[X] * car.lane * LANE_WIDTH;
+      carPos[Z] += side[Z] * car.lane * LANE_WIDTH;
+
+      // Drive on top of the road surface
+      carPos[Y] = roadGround * Number(heightSlider.value) + ROAD_THICKNESS;   // on top of the asphalt
+
+      const carTarget = add(carPos, carDir);     // a point just ahead of the car
+      const carMatrix = multiply(targetTo(carPos, carTarget, [0, 1, 0]), scaling(1.6, 1.6, 1.6));
+      drawPart(carMatrix, [0, 0.1, 0], [0.35, 0.2, 1.0], [1, 1, 1]);   // white
+    }
+  }
+
+  // TV helicopters
+  if (trackCubes.length) {
+    const dt = Math.min(deltaTime, 0.05);
+    const n = TRACK_SEGMENTS.length;
+    for (const heli of HELICOPTERS) {
+      heli.s += dt * heli.speed * heli.dir;
+      heli.s = (heli.s + n) % n;               // wrap both ways (it can fly backwards)
+      const seg = Math.floor(heli.s);
+      const t = heli.s - seg;
+
+      const pts = heliSegmentPoints(seg, heli.shrink, heli.height);
+      const pos = bezier3(...pts, t);
+      const dir = bezierTangent3(...pts, t).map(v => v * heli.dir);   // flying backwards: flip the direction
+
+      // Face along the curve (targetTo), dip the nose a little like a real
+      // helicopter flying forward (rotationX), then scale to size.
+      const heliMatrix = multiply(
+        multiply(targetTo(pos, add(pos, dir), [0, 1, 0]), rotationX(0.15)),
+        scaling(HELI_LENGTH, HELI_LENGTH, HELI_LENGTH),
+      );
+      drawHelicopter(heliMatrix, now);
+
+      // With "Control points" on, show the shrunken flight path as a dotted line
+      if (showControlBox.checked) {
+        gl.uniform3fv(uColor, [1.0, 0.85, 0.1]);
+        for (let k = 0; k < n; k++) {
+          const p = heliSegmentPoints(k, heli.shrink, heli.height);
+          for (let i = 0; i < 6; i++) {
+            const q = bezier3(...p, i / 6);
+            gl.uniformMatrix4fv(uModel, false, multiply(translation(q[X], q[Y], q[Z]), scaling(0.3, 0.3, 0.3)));
+            gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
+          }
+        }
+      }
+    }
+  }
+
+  // Show Blimp Track
+
+  // Blimp path: show the Bezier curve, its control points and control polygon
+  if (showControlBox.checked) {
+    // 1. The curve: a small white cube every 1/60 of the way along
+    gl.uniform3fv(uColor, [1, 1, 1]);
+    const SAMPLES = 60;
+    for (let i = 0; i <= SAMPLES; i++) {
+      const p = bezier3(...BLIMP_PATH, i / SAMPLES);
+      gl.uniformMatrix4fv(uModel, false, multiply(translation(p[X], p[Y], p[Z]), scaling(0.6, 0.6, 0.6)));
+      gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
+    }
+
+    // 2. Control points: yellow = anchors (on the curve), cyan = handles (pull it)
+    BLIMP_PATH.forEach((p, i) => {
+      const isAnchor = (i === 0 || i === 3);
+      gl.uniform3fv(uColor, isAnchor ? [1.0, 0.85, 0.1] : [0.1, 0.9, 1.0]);
+      gl.uniformMatrix4fv(uModel, false, multiply(translation(p[X], p[Y], p[Z]), scaling(2, 2, 2)));
+      gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
+    });
+
+    // 3. Control polygon: dotted lines P0→P1→P2→P3
+    gl.uniform3fv(uColor, [0.1, 0.9, 1.0]);
+    for (let k = 0; k < 3; k++) {
+      const a = BLIMP_PATH[k], b = BLIMP_PATH[k + 1];
+      for (let s = 0; s <= 20; s++) {
+        const f = s / 20;
+        // straight-line blend from a to b: a*(1-f) + b*f
+        const p = [a[X] * (1 - f) + b[X] * f, a[Y] * (1 - f) + b[Y] * f, a[Z] * (1 - f) + b[Z] * f];
+        gl.uniformMatrix4fv(uModel, false, multiply(translation(p[X], p[Y], p[Z]), scaling(0.3, 0.3, 0.3)));
+        gl.drawArrays(gl.TRIANGLES, 0, VERTEX_COUNT);
+      }
+    }
+  }
+
+  // Update the FPS counter (averaged over half a second)
 
   updateFps(deltaTime);
   requestAnimationFrame(draw);

@@ -1,0 +1,141 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Level 4 Fun: Monza Grand Prix</title>
+  <style>
+    html, body { margin: 0; height: 100%; background: black; overflow: hidden; }
+    canvas { display: block; width: 100%; height: 100%; }
+    body { font-family: system-ui, sans-serif; }
+
+    /* ---- Floating control panel (same style as every level) ---- */
+    #controls {
+      position: fixed; top: 12px; left: 12px; right: 12px;
+      display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px;
+      background: rgba(0, 0, 0, 0.6); color: white;
+      padding: 8px 12px; border-radius: 6px; font-size: 14px;
+    }
+    #controls button {
+      background: #d40000; color: white; border: 0; border-radius: 4px;
+      padding: 4px 12px; font: inherit; cursor: pointer;
+    }
+    #controls label { display: flex; align-items: center; gap: 6px; }
+    #controls input[type=range] { width: 90px; }
+    #controls .presets { display: flex; align-items: center; gap: 4px; }
+    #controls .gridPreset { background: #333; padding: 4px 8px; }
+    #controls .gridPreset:hover { background: #555; }
+    #controls .gridPreset.active { background: #d40000; }
+    #fps, #status { color: #9a9ca3; font-variant-numeric: tabular-nums; }
+    #controls .hint { width: 100%; font-size: 12px; color: #9a9ca3; }
+    .hidden { display: none !important; }
+
+    /* ---- Leaderboard ---- */
+    #board {
+      position: fixed; left: 12px; top: 112px; width: 210px;
+      background: rgba(10, 10, 14, 0.82); color: white; border-radius: 6px;
+      font-size: 13px; overflow: hidden; border-top: 3px solid #d40000;
+      max-height: calc(100% - 190px); overflow-y: auto;
+    }
+    #boardTitle { padding: 7px 10px; font-weight: 700; letter-spacing: 0.04em; font-size: 12px; background: rgba(255,255,255,0.06); }
+    #board .row {
+      display: grid; grid-template-columns: 22px 4px 38px 36px 1fr; align-items: center; gap: 6px;
+      padding: 3px 10px; cursor: pointer; font-variant-numeric: tabular-nums;
+    }
+    #board .row:hover { background: rgba(255,255,255,0.08); }
+    #board .row.sel { background: rgba(212,0,0,0.35); }
+    #board .pos { text-align: right; color: #ccc; }
+    #board .bar { height: 14px; border-radius: 1px; }
+    #board .code { font-weight: 700; }
+    #board .num { color: #888; font-size: 11px; }
+    #board .gap { text-align: right; color: #bbb; font-size: 12px; }
+
+    /* ---- HUD: start lights + selected driver ---- */
+    #hud {
+      position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 8px; color: white; pointer-events: none;
+    }
+    #hud .lights { display: flex; gap: 10px; background: rgba(0,0,0,0.75); padding: 8px 12px; border-radius: 8px; }
+    #hud .lights span { width: 22px; height: 22px; border-radius: 50%; background: #333; }
+    #hud .lights span.on { background: #ff1a1a; box-shadow: 0 0 12px #ff1a1a; }
+    #hud .driver {
+      background: rgba(0,0,0,0.7); padding: 6px 14px; border-radius: 6px; border-left: 5px solid #d40000;
+      display: flex; gap: 10px; align-items: baseline; font-size: 14px; white-space: nowrap;
+    }
+    #hud .driver span { color: #bbb; font-size: 12px; }
+    #hud .driver .spd { color: #fff; font-variant-numeric: tabular-nums; }
+
+    /* ---- Disclaimer + credits ---- */
+    #disclaimer {
+      position: fixed; right: 12px; bottom: 12px; max-width: 330px;
+      background: rgba(0,0,0,0.6); color: #ccc; font-size: 11px; line-height: 1.4;
+      padding: 6px 10px; border-radius: 6px;
+    }
+    #disclaimer a { color: #9cf; }
+  </style>
+</head>
+<body>
+  <canvas id="level4funCanvas"></canvas>
+
+  <div id="controls">
+    <span class="presets">
+      <span>Race</span>
+      <button class="gridPreset raceSpeed active" data-speed="1">1×</button>
+      <button class="gridPreset raceSpeed" data-speed="2">2×</button>
+      <button class="gridPreset raceSpeed" data-speed="3">3×</button>
+      <button id="restartRace">Restart</button>
+    </span>
+    <span class="presets">
+      <span>Camera</span>
+      <button class="gridPreset camMode active" data-cam="tv">TV</button>
+      <button class="gridPreset camMode" data-cam="chase">Chase</button>
+      <button class="gridPreset camMode" data-cam="onboard">Onboard</button>
+      <button class="gridPreset camMode" data-cam="heli">Helicopter</button>
+      <button class="gridPreset camMode" data-cam="blimp">Blimp</button>
+      <button class="gridPreset camMode" data-cam="free">Free</button>
+    </span>
+    <label>Chaos <input type="range" id="chaos" min="0" max="3" step="0.1" value="1.5"></label>
+    <label>Sun <input type="range" id="sunAngle" min="5" max="175" step="1" value="60"></label>
+    <label>Fog <input type="range" id="fogDensity" min="0" max="0.03" step="0.001" value="0.006"></label>
+    <label>Height <input type="range" id="heightScale" min="0" max="40" step="1" value="10"></label>
+    <span class="presets">
+      <span>Resolution</span>
+      <button class="gridPreset resolution" data-cubes="2500">2.5k</button>
+      <button class="gridPreset resolution active" data-cubes="10000">10k</button>
+      <button class="gridPreset resolution" data-cubes="20000">20k</button>
+    </span>
+    <span id="status"></span>
+    <span id="fps">– FPS</span>
+    <div class="hint">Click a driver on the leaderboard to follow them · Scroll to zoom the helicopter/blimp cameras ·
+      Free camera: WASD, ↑/↓, click and drag to look</div>
+
+    <!-- Used by the shared Level 3/4 code; not needed as visible controls here -->
+    <span class="hidden">
+      <input type="range" id="moveSpeed" min="0.2" max="5" step="0.1" value="1">
+      <input type="checkbox" id="showTrack" checked>
+      <input type="checkbox" id="showControl">
+      <span id="trackCount"></span>
+    </span>
+  </div>
+
+  <div id="board">
+    <div id="boardTitle">MONZA</div>
+    <div id="boardRows"></div>
+  </div>
+
+  <div id="hud"></div>
+
+  <div id="disclaimer">
+    <b>Fun extra, built with AI assistance (Claude)</b>, on top of our Level 4 code.<br>
+    Car model: <a href="https://skfb.ly/pOvCu" target="_blank">"2026 Audi R26"</a> by Dave Love, licensed
+    <a href="http://creativecommons.org/licenses/by/4.0/" target="_blank">CC BY 4.0</a> (decimated and recolored).
+    Team colors and pace are approximate; not affiliated with Formula 1 or any team.
+  </div>
+
+  <script src="track_points.js"></script>
+  <script type="module" src="ColorAndHeightImageToArr.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gl-matrix@3.4.3/gl-matrix-min.js"></script>
+  <script src="https://webglfundamentals.org/webgl/resources/webgl-utils.js"></script>
+  <script src="https://webglfundamentals.org/webgl/resources/m4.js"></script>
+  <script type="module" src="level4fun.js"></script>
+</body>
+</html>

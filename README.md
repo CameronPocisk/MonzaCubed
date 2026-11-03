@@ -11,6 +11,9 @@ Navigate to the same area
 Then, using a heightmap with labels on half opacity, overlap the heightmap and satalite imagery
 Finally, resize them to be as large as you can and screenshot the cropped images
 
+# Level 4 Fun (race simulator)
+`level4fun.html` / `level4fun.js` is a fun extra on top of Level 4, built with AI assistance (Claude) and labeled as such on the page. It is not one of the graded levels. It adds a 3-lap race with the 2026 grid (team colors and pace are approximate), procedural scenery, grandstands, pit wall, kerbs, and TV cameras (chase, onboard, helicopter, blimp).
+
 # Credits
 
 ## 3D model
