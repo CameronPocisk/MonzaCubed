@@ -8,7 +8,7 @@ This project is a version of Monza (F1 Track based in Italy) replicated with a b
 Team Members: Aditya Pawar, Cameron Pocisk
 
 - **Live app:** https://monzacubed.vercel.app/
-- **Demo video:** <!-- video link -->
+- **Demo video:** https://youtu.be/fCUrXRjoEDg 
 - **Source code:** https://github.com/CameronPocisk/MonzaCubed
 
 
@@ -255,7 +255,7 @@ Level 4 builds up on Level 3 with a sun, fog, skybox, scenery around the map and
 | **◀ ▶** | Which car the car cameras follow |
 | Mouse wheel | Zoom |
 
-**Skybox.**  <!-- To do Cameron: Add ur explanation-- >
+**Skybox.**  <!-- To do Cameron: Add ur explanation -->
 
 **Fog:** The vertex shader calculates how far each vertex is from the camera. After `uView` the camera sits at (0, 0, 0), so the distance is just the length of the point:
 
