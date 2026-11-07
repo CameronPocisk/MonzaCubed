@@ -316,7 +316,7 @@ Level 4 builds up on Level 3 with a sun, fog, skybox, scenery around the map and
 | **◀ ▶** | Which car the car cameras follow |
 | Mouse wheel | Zoom |
 
-**Skybox.**  <!-- To do Cameron: Add ur explanation -->
+**Skybox (Cameron):** I followed the [WebGL Fundamentals skybox tutorial](https://webglfundamentals.org/webgl/lessons/webgl-skybox.html) and then swapped in new images for a sunny sky. The skybox is a cube map: 6 images, one for each side of a big cube around the camera. Instead of drawing an actual cube, it draws one quad that covers the whole screen. For each pixel it works out which direction the camera is looking (using the inverse of the view and projection matrices, with the camera's position taken out) and reads the sky color in that direction. Taking the position out is why the sky never gets closer when you move. It's drawn at the farthest depth (`gl.depthFunc(gl.LEQUAL)`) so the landscape always shows in front of it. Once that worked, I ported its shader program into Level 4 and split the drawing into two standalone functions, one for our cubes (`useCubeProgram`) and one for the sky (`drawSkybox`), so each frame can switch between the two shader programs.
 
 **Fog:** The vertex shader calculates how far each vertex is from the camera. After `uView` the camera sits at (0, 0, 0), so the distance is just the length of the point:
 
