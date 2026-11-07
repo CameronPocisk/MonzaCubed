@@ -12,7 +12,7 @@ Team Members: Aditya Pawar, Cameron Pocisk
 - **Source code:** https://github.com/CameronPocisk/MonzaCubed
 
 
-If you want to run it on your own computer, opening ```index.html``` directly won't work (the browser blocks loading the images and JS modules from a file). You need a local server like Live Server. In order to do so, please right-click the index.html file in VS Code and click 'Open with Live Server' and then you can access it!
+If you want to run it on your own computer, opening `index.html` directly won't work (the browser blocks loading the images and JS modules from a file). You need a local server like Live Server. In order to do so, please install the Live Server extention, then right-click the index.html file in VS Code and click 'Open with Live Server' and then you can access it!
 
 
 ## 1. Design
@@ -29,7 +29,7 @@ Before writing any code, we did research on the Imagery available to us and how 
 
 ## 2. Features and controls
 
-Once you open the Vercel Link or ```index.html``` when hosted locally, you'll be greeted with Level 0 which contains a Cube spinning around with each face having its own color.
+Once you open the Vercel Link or `index.html` when hosted locally, you'll be greeted with Level 0 which contains a spinning [CMYK Cube](https://www.cmycubes.com/cdn/shop/products/).
 
 On the top bar you can see the title of the Project along with our names on there. We also have a short description of how the levels progress and then we have 6 buttons to access the different levels.
 
@@ -43,14 +43,20 @@ The **Hide info** button on the right collapses the title bar so the canvas gets
 ### Level 0
 ![Level 0](docs/screenshots/level0.jpg)
 
-<!-- To-Do: Cameron, talk about how the colors work -->
+by Cameron
+Level 0 was done by Cameron before the tutorials for webGL in class. Here we learned what a shader, buffer, and program are. 
+I followed [this tutorial](https://developer.mozilla.org/en-US/docs/Web/API/WebGL_API/Tutorial/Adding_2D_content_to_a_WebGL_context) from start to finish which origionally produced a red cube. 
+After completing the tutorial, I adjusted the cube to be a [CMYK Cube](https://www.cmycubes.com/cdn/shop/products/cmycubes_225714273_321209596349055_3568825238767861154_n.jpg?v=1762482606&width=1000) with transparency, and rotated about each axis for a fun effect.
 
 ### Level 1
 ![Level 1](docs/screenshots/level1.jpg)
 
-<!-- To-Do: Cameron, talk about how you generated the cubes-->
+by Cameron
+Level one comes from the demo in class. Here we read through all the code and actually learned what was going on in each part of the program. 
+After creating level 1 we had a good fundamental concept of Vertex/Fragment shaders, GL Programs, Buffers, Shader attributes, transformation matricies, cameras, and draw functions. I ported over the original example from class for the lecture. 
 
-Level 1 is a grid of cubes, each one with a random height and a random color. The camera rotates around the center of the grid. 
+by Adi
+I adjusted level one so that the camera rotates around the center of the grid can be sped up and zoomed, and you can control the number of cubes.
 
 | Control | What it does |
 |---|---|
@@ -113,10 +119,57 @@ Level 2 builds the landscape from two images of Monza: a satellite photo for the
 | **W A S D**, **↑ / ↓**, drag | Move, go up/down, look around |
 | **Shift + R** | Reset the camera |
 
+by Cameron
+### Monza Satalite Imagery and Heightmap Data.
+This process was not very straightforward, but we had a goal that we wanted to follow.
+1. (Monza Satalite Imagery): I was able to find just one site that could download satalite imagery with no account or setup [(here)](https://livingatlas.arcgis.com/wayback/#mapCenter=9.28770%2C45.61710%2C15&mode=explore&active=63116). I navigated to Monza on World Imagery Wayback, turned off the labels, and exported the image.
 
-<!-- To-Do: Cameron, talk about how you loaded in the image and the camera!  -->
+2. (Monza Height Imagery): This is the best heightmapping website online and I am very thankful for it [Tangrams](https://tangrams.github.io/heightmapper/). I dragged the map to where Monza is on planet earth, then exported a labeled and non-labled heightmap of the area.
 
+3. (Matching Height and Satalite Data Images): 
+Although at this point I had the images I needed, they still were not ready. They needed to be properly scaled and Alligned. To do so I followed another process in ...  Powerpoint. 
 
+1. Add all 3 images to a new powerpoint. 
+2. Crop out the non track parts of each images. 
+3. Align the satalite image with the labeled heightmap at 50% opacity. 
+4. Do like 20 scales and micro adjustments to allign the roads / labels.
+5. Apply the same transformations to the non-labeled heightmap. 
+6. Crop them all to the same size and then export the cropped Satalite and non-label Heightmap images.
+
+### Processing Images
+Once you have your images, they need to be turned into data that our program can use (2d Arrays). So, we first gathered the pixel data from the images into 2d arrays with a simple script.
+
+```js
+for (let y = 0; y < height; y += heightSkip){
+    const row = [];
+    for (let x = 0; x < width; x += widthSkip) {
+        const i = (Math.round(y) * width + Math.round(x)) * 4;
+        row.push({ r: data[i], g: data[i + 1], b: data[i + 2], a: data[i + 3] });
+    }
+    pixels.push(row);
+}
+```
+
+Then we needed to merge the images properly (interpolation).
+This process results in a 2d array for both the height and satalite imagery. I also created a process to interpolate the heightmap onto the satalite imagery.
+
+```js
+const interpolatedValue =
+    getHeightNormal(heightIn[row1Position][col1Position]) * row1Percent * col1Percent +
+    getHeightNormal(heightIn[row1Position][col2Position]) * row1Percent * col2Percent +
+    getHeightNormal(heightIn[row2Position][col1Position]) * row2Percent * col1Percent +
+    getHeightNormal(heightIn[row2Position][col2Position]) * row2Percent * col2Percent;
+```
+This code picks the corresponding 4 height pixels for each color pixel and finds what percent of each pixel it is and averages them.
+
+<sub>
+Small note: The image processing skips some pixels, so the interpolation is not used to full effect here. The pixels are skipped so that we don't have multiple 3.3 million element arrays. Resolving this could be a future improvement
+</sub>
+
+### Rendering the scene
+Once we had the arrays, I moved over to the code that was responsible for filling the buffer. Instead of making random colors, we assigned each of the cubes to be one of the members of the final array from the satalite and height data. 
+
+by Adi
 **Resolution:** It starts off at 2,500 cubes so it loads fast on any laptop, and the buttons let you go all the way up to 40,000. `buildLandscape` builds the new list of cubes first and then swaps it in at the end, so `draw()` never ends up drawing a half-built landscape:
 
 ```js
@@ -131,6 +184,7 @@ scaling(1, cube.height * Number(heightSlider.value), 1)
 
 
 ### Level 3
+by Adi
 ![Level 3](docs/screenshots/level3.jpg)
 ![Control points](docs/screenshots/level3_control_points.jpg)
 ![Blimp](docs/screenshots/blimp_closeup.jpg)
@@ -255,8 +309,54 @@ Level 4 builds up on Level 3 with a sun, fog, skybox, scenery around the map and
 | **◀ ▶** | Which car the car cameras follow |
 | Mouse wheel | Zoom |
 
-**Skybox.**  <!-- To do Cameron: Add ur explanation-- >
+by Cameron
+### Skybox
+To create the skybox, I followed this [webGL Skybox Tutorial](https://webglfundamentals.org/webgl/lessons/webgl-skybox.html). After following the tutorial I was able to replicate the skybox program they made with a very sunny skybox I found online.
 
+Then, I had to port the skybox over to the level 4 program. I was really struggling with this for a while but I everntually learned a little bit more about how webGL programs work to resolve everything. 
+
+I added the skybox shaders to a new program in level 4. I also filled a new buffer and set unique flags so that the program wouldn't have weird bugs or draw the skybox too close to the camera.
+```js
+// Create a second program for the skybox
+const skyboxProgram = gl.createProgram();
+gl.attachShader(skyboxProgram, compileShader(gl.VERTEX_SHADER, skyboxVertexShader));
+gl.attachShader(skyboxProgram, compileShader(gl.FRAGMENT_SHADER, skyboxFragmentShader));
+gl.linkProgram(skyboxProgram);
+```
+
+I seperated the draw functions so the cubes and skybox are seperate.
+```js
+function draw(now) {
+    ... 
+    gl.clearColor(0.55, 0.75, 0.95, 1)
+    gl.enable(gl.DEPTH_TEST);
+    ...
+    drawSkybox();
+    UseCubeProgram();
+    ...
+}
+```
+
+### Movement Controls
+At this point, I had made level 4 with a convincing representation of Monza, even a nice skybox, but no good way to admire it. So, I implemented the controls for the game. 
+
+To do this, I added event listeners for WASD, and ↑↓.
+In order to move the camera left / right / forward / back I used teh camera concepts we learned in class. 
+
+```js
+const cameraToTarget = subtract(lookAtVec3, cameraVec3);
+const perp = normalize(cross(cameraToTarget, upVec3));
+// The forward part is known as the rejection (found out via https://www.vectorvisualizer.com/visualizer)
+const a = cameraToTarget
+const b = upVec3
+const projBonA = scale(b, (dot(a, b)) / (dot(b, b)));
+const rejection = subtract(a, projBonA);
+const forward = normalize(rejection); 
+```
+
+After finding the right vectors, I did basic vector additions to adjust the camera and look at vector depending on the keypress.
+
+by Adi
 **Fog:** The vertex shader calculates how far each vertex is from the camera. After `uView` the camera sits at (0, 0, 0), so the distance is just the length of the point:
 
 ```glsl
@@ -337,6 +437,7 @@ Tiles right next to the map start at the height of the map's edge and blend out 
 | ![](docs/screenshots/fun_heli.jpg) | ![](docs/screenshots/fun_blimp.jpg) |
 
 ![Main straight](docs/screenshots/fun_main_straight.jpg)
+by Adi
 
 This tab is an extra we built **with AI assistance (Claude)** on top of our Level 4 code and it's labelled that way on the page too. The idea was to make it feel like an F1 Team Manager game where you watch a full race play out, follow any driver you want, and switch between TV-style cameras.
 
@@ -377,16 +478,17 @@ The brief says: "describe the bezier curve function you selected."
 
 
 ## 5. Future work
+by Cameron
+I am really interested in the performance side of things, so maximizing the FPS or number of cubes is something I would like to do. Also - 
+- Camera with realistic acceleration and speed
+- Complete image processing
+- More locations
+- Reflective lighting (from class notes)
 
 <!-- What would you do next? What did you try and not finish? -->
 
 
 ## 6. How we made the assets
-
-### Satellite image and heightmap
-
-<!-- Cameron: check this is right -->
-We got the heightmap from [heightmapper](https://tangrams.github.io/heightmapper/#15.33256/45.6171/9.2877) and the satellite imagery from [World Imagery Wayback](https://livingatlas.arcgis.com/wayback/#mapCenter=9.28770%2C45.61710%2C15&mode=explore&active=63116), both zoomed to the same area around Monza. We overlaid the heightmap on the satellite image at half opacity to line them up, then cropped both the same way (`assets/MonzaSataliteJustTrack.png`, `assets/MonzaHeightmapJustTrack.png`).
 
 ### Porting the Bézier track from Blender
 
@@ -446,9 +548,7 @@ We got the heightmap from [heightmapper](https://tangrams.github.io/heightmapper
 7. **Team colors:** The car's paint is one texture made up of colored squares (silver, black, Audi orange), and every painted panel reads its color from one of those squares. For each team we copy that image onto a canvas, paint over the squares with the team's colors, and use that as the car's texture. Audi keeps its real livery of course!
 
 
-## 7. AI use
-
-<!-- Honestly: what did you use AI for, and what did you do yourselves? -->
+## 7. AI Disclosure
 
 **Aditya:**
 
@@ -459,11 +559,9 @@ I believe I was able to use AI to help with my concepts especially when it came 
 The explanations it gave were helpful in me making that a reality. Now obviously, Level 4 (fun/bonus) was letting Mr Claude run wild with how crazy it can go with what we already had on Level 4 and I think the end result was fun but choppy. I chose not to work iteratively on that bonus Level just to show how choppy AI can output without a human in the loop. 
 
 **Cameron:**
-
+I used gen AI once to generate the mouse controls. 
 
 ## 8. Credits
 
 ### 3D model
 "2026 Audi R26" (https://skfb.ly/pOvCu) by Dave Love SketchFab is licensed under Creative Commons Attribution (http://creativecommons.org/licenses/by/4.0/).
-
-
