@@ -17,14 +17,21 @@ If you want to run it on your own computer, opening ```index.html``` directly wo
 
 ## 1. Design
 
-![Design sketch](docs/screenshots/design_sketch.jpg)
-
-
 The reason we chose Monza was because when we read the project guidelines where we had to create a world from an image and a height map- we thought that a F1 Track would be the most fun one to recreate as then we can have Bezier Curves depicting the track as well and have objects follow the track so they can be cars racing!
 
 Also another reason we chose Monza was because it is the simplest F1 Track to recreate. There's only a few sections of elevations and it contains mostly straights and a couple of turns which is a stark contrast to the other tracks which have a lot of twists & turns which would be difficult to replicate with a Bezier Curve.
 
 Before writing any code, we did research on the Imagery available to us and how we can port over a height map.
+
+Once we had that ported over, we worked on a Bezier Curve in Blender with our reference image. 
+
+| 1. Placing the points | 2. The finished curve | 3. Turn 1 up close |
+|---|---|---|
+| ![](docs/screenshots/design_1_control_points.jpg) | ![](docs/screenshots/design_2_traced_curve.jpg) | ![](docs/screenshots/design_3_turn1_handles.jpg) |
+
+The chicane at Turn 1 was the hardest part- it's so tight that it needed 4 points on its own. In the third picture, the orange dots are the points that sit on the track and the black dots at the ends of the yellow lines are the handles that bend the curve between them.
+
+<!-- Adi: add 4-5 lines here on what you pictured the finished world looking like / how it should feel (cubes from the satellite image, cars racing, blimp + helis in the sky, TV-style cameras, haze, sun) -->
 
 
 ## 2. Features and controls
