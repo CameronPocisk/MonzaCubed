@@ -8,7 +8,7 @@ This project is a version of Monza (F1 Track based in Italy) replicated with a b
 Team Members: Aditya Pawar, Cameron Pocisk
 
 - **Live app:** https://monzacubed.vercel.app/
-- **Demo video:** <!-- video link -->
+- **Demo video:** https://youtu.be/fCUrXRjoEDg 
 - **Source code:** https://github.com/CameronPocisk/MonzaCubed
 
 
@@ -17,14 +17,21 @@ If you want to run it on your own computer, opening `index.html` directly won't 
 
 ## 1. Design
 
-![Design sketch](docs/screenshots/design_sketch.jpg)
-
-
 The reason we chose Monza was because when we read the project guidelines where we had to create a world from an image and a height map- we thought that a F1 Track would be the most fun one to recreate as then we can have Bezier Curves depicting the track as well and have objects follow the track so they can be cars racing!
 
 Also another reason we chose Monza was because it is the simplest F1 Track to recreate. There's only a few sections of elevations and it contains mostly straights and a couple of turns which is a stark contrast to the other tracks which have a lot of twists & turns which would be difficult to replicate with a Bezier Curve.
 
 Before writing any code, we did research on the Imagery available to us and how we can port over a height map.
+
+Once we had that ported over, we worked on a Bezier Curve in Blender with our reference image. 
+
+| 1. Placing the points | 2. The finished curve | 3. Turn 1 up close |
+|---|---|---|
+| ![](docs/screenshots/design_1_control_points.jpg) | ![](docs/screenshots/design_2_traced_curve.jpg) | ![](docs/screenshots/design_3_turn1_handles.jpg) |
+
+The chicane at Turn 1 was the hardest part- it's so tight that it needed 4 points on its own. In the third picture, the orange dots are the points that sit on the track and the black dots at the ends of the yellow lines are the handles that bend the curve between them.
+
+<!-- Adi: add 4-5 lines here on what you pictured the finished world looking like / how it should feel (cubes from the satellite image, cars racing, blimp + helis in the sky, TV-style cameras, haze, sun) -->
 
 
 ## 2. Features and controls
@@ -309,54 +316,8 @@ Level 4 builds up on Level 3 with a sun, fog, skybox, scenery around the map and
 | **◀ ▶** | Which car the car cameras follow |
 | Mouse wheel | Zoom |
 
-by Cameron
-### Skybox
-To create the skybox, I followed this [webGL Skybox Tutorial](https://webglfundamentals.org/webgl/lessons/webgl-skybox.html). After following the tutorial I was able to replicate the skybox program they made with a very sunny skybox I found online.
+**Skybox.**  <!-- To do Cameron: Add ur explanation -->
 
-Then, I had to port the skybox over to the level 4 program. I was really struggling with this for a while but I everntually learned a little bit more about how webGL programs work to resolve everything. 
-
-I added the skybox shaders to a new program in level 4. I also filled a new buffer and set unique flags so that the program wouldn't have weird bugs or draw the skybox too close to the camera.
-```js
-// Create a second program for the skybox
-const skyboxProgram = gl.createProgram();
-gl.attachShader(skyboxProgram, compileShader(gl.VERTEX_SHADER, skyboxVertexShader));
-gl.attachShader(skyboxProgram, compileShader(gl.FRAGMENT_SHADER, skyboxFragmentShader));
-gl.linkProgram(skyboxProgram);
-```
-
-I seperated the draw functions so the cubes and skybox are seperate.
-```js
-function draw(now) {
-    ... 
-    gl.clearColor(0.55, 0.75, 0.95, 1)
-    gl.enable(gl.DEPTH_TEST);
-    ...
-    drawSkybox();
-    UseCubeProgram();
-    ...
-}
-```
-
-### Movement Controls
-At this point, I had made level 4 with a convincing representation of Monza, even a nice skybox, but no good way to admire it. So, I implemented the controls for the game. 
-
-To do this, I added event listeners for WASD, and ↑↓.
-In order to move the camera left / right / forward / back I used teh camera concepts we learned in class. 
-
-```js
-const cameraToTarget = subtract(lookAtVec3, cameraVec3);
-const perp = normalize(cross(cameraToTarget, upVec3));
-// The forward part is known as the rejection (found out via https://www.vectorvisualizer.com/visualizer)
-const a = cameraToTarget
-const b = upVec3
-const projBonA = scale(b, (dot(a, b)) / (dot(b, b)));
-const rejection = subtract(a, projBonA);
-const forward = normalize(rejection); 
-```
-
-After finding the right vectors, I did basic vector additions to adjust the camera and look at vector depending on the keypress.
-
-by Adi
 **Fog:** The vertex shader calculates how far each vertex is from the camera. After `uView` the camera sits at (0, 0, 0), so the distance is just the length of the point:
 
 ```glsl
@@ -467,25 +428,26 @@ Compared to Level 4, the cars brake for corners, slipstream each other and get D
 
 *The same curve in Level 3, with the control points turned on.*
 
-<!--
-The brief says: "describe the bezier curve function you selected."
-- The formula, and what P0..P3 do
-- Your hand calculation of B(0.5) from your notebook
-- The derivative, and what you use it for
-- The four places you used curves: track, blimp, helicopters, control polygon
-- Something you noticed (cars bunching up: t is not distance)
--->
+We went with the cubic Bezier curve for everything that moves. It takes 4 control points- P0 is where the curve starts, P3 is where it ends, and P1 and P2 are the handles that pull the curve towards them without the curve actually touching them. As `t` goes from 0 to 1, the point slides along the curve:
+
+```
+B(t) = (1-t)³·P0 + 3(1-t)²t·P1 + 3(1-t)t²·P2 + t³·P3
+```
+
+The 4 weights always add up to 1, so it's really just a weighted average of the control points. That's also why we could shrink and lift the whole track for the helicopters- if you move the control points, the whole curve moves with them. We also used the derivative of the curve, which tells you which way the curve is going at any `t`, to point the cars, blimp and helicopters forward:
+
+```
+B'(t) = 3(1-t)²·(P1-P0) + 6(1-t)t·(P2-P1) + 3t²·(P3-P2)
+```
+
+The track is 44 of these curves chained together end to end (each one's P3 is the next one's P0), so a car's position is just "which curve am I on + how far along it". One thing we noticed is that `t` isn't distance- a long straight and a short corner both go from t = 0 to 1, so cars move faster on long segments and bunch up in the tight ones. We used it in 4 places: the F1 track, the blimp's path, the helicopters' paths, and the control points you can turn on in Level 3.
 
 
 ## 5. Future work
-by Cameron
-I am really interested in the performance side of things, so maximizing the FPS or number of cubes is something I would like to do. Also - 
-- Camera with realistic acceleration and speed
-- Complete image processing
-- More locations
-- Reflective lighting (from class notes)
 
-<!-- What would you do next? What did you try and not finish? -->
+Our biggest idea for next time is turning the Fun level into an actual F1 Team Manager game. Right now you can only watch the race- we'd want you to pick a team and make the race decisions yourself like when to pit, which tyres to go on, and team orders between your two drivers (Aditya and Cameron obviously). Things like tyre wear, fuel and weather changing during the race would make those decisions actually matter.
+
+We'd also want better resolution on the track. The road is built out of small flat slabs sitting on top of cubes, so up close you can see it step up and down and the cars can look choppy as they drive over it. Smoothing out the heights between the slabs and sampling the curve by distance instead of by `t` (so the cars don't speed up on long segments and bunch up in corners) would make it look a lot cleaner. The Fun level also gets choppy with all 22 cars and the scenery on screen, so drawing them more efficiently would help it run smoother on slower laptops.
 
 
 ## 6. How we made the assets
