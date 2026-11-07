@@ -445,6 +445,14 @@ The track is 44 of these curves chained together end to end (each one's P3 is th
 
 ## 5. Future work
 
+by Cameron
+I am really interested in the performance side of things, so maximizing the FPS or number of cubes is something I would like to do. Also - 
+- Camera with realistic acceleration and speed
+- Complete image processing
+- More locations
+- Reflective lighting (from class notes)
+
+by Adi
 Our biggest idea for next time is turning the Fun level into an actual F1 Team Manager game. Right now you can only watch the race- we'd want you to pick a team and make the race decisions yourself like when to pit, which tyres to go on, and team orders between your two drivers (Aditya and Cameron obviously). Things like tyre wear, fuel and weather changing during the race would make those decisions actually matter.
 
 We'd also want better resolution on the track. The road is built out of small flat slabs sitting on top of cubes, so up close you can see it step up and down and the cars can look choppy as they drive over it. Smoothing out the heights between the slabs and sampling the curve by distance instead of by `t` (so the cars don't speed up on long segments and bunch up in corners) would make it look a lot cleaner. The Fun level also gets choppy with all 22 cars and the scenery on screen, so drawing them more efficiently would help it run smoother on slower laptops.
