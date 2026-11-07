@@ -373,19 +373,26 @@ Compared to Level 4, the cars brake for corners, slipstream each other and get D
 
 *The same curve in Level 3, with the control points turned on.*
 
-<!--
-The brief says: "describe the bezier curve function you selected."
-- The formula, and what P0..P3 do
-- Your hand calculation of B(0.5) from your notebook
-- The derivative, and what you use it for
-- The four places you used curves: track, blimp, helicopters, control polygon
-- Something you noticed (cars bunching up: t is not distance)
--->
+We went with the cubic Bezier curve for everything that moves. It takes 4 control points- P0 is where the curve starts, P3 is where it ends, and P1 and P2 are the handles that pull the curve towards them without the curve actually touching them. As `t` goes from 0 to 1, the point slides along the curve:
+
+```
+B(t) = (1-t)³·P0 + 3(1-t)²t·P1 + 3(1-t)t²·P2 + t³·P3
+```
+
+The 4 weights always add up to 1, so it's really just a weighted average of the control points. That's also why we could shrink and lift the whole track for the helicopters- if you move the control points, the whole curve moves with them. We also used the derivative of the curve, which tells you which way the curve is going at any `t`, to point the cars, blimp and helicopters forward:
+
+```
+B'(t) = 3(1-t)²·(P1-P0) + 6(1-t)t·(P2-P1) + 3t²·(P3-P2)
+```
+
+The track is 44 of these curves chained together end to end (each one's P3 is the next one's P0), so a car's position is just "which curve am I on + how far along it". One thing we noticed is that `t` isn't distance- a long straight and a short corner both go from t = 0 to 1, so cars move faster on long segments and bunch up in the tight ones. We used it in 4 places: the F1 track, the blimp's path, the helicopters' paths, and the control points you can turn on in Level 3.
 
 
 ## 5. Future work
 
-<!-- What would you do next? What did you try and not finish? -->
+Our biggest idea for next time is turning the Fun level into an actual F1 Team Manager game. Right now you can only watch the race- we'd want you to pick a team and make the race decisions yourself like when to pit, which tyres to go on, and team orders between your two drivers (Aditya and Cameron obviously). Things like tyre wear, fuel and weather changing during the race would make those decisions actually matter.
+
+We'd also want better resolution on the track. The road is built out of small flat slabs sitting on top of cubes, so up close you can see it step up and down and the cars can look choppy as they drive over it. Smoothing out the heights between the slabs and sampling the curve by distance instead of by `t` (so the cars don't speed up on long segments and bunch up in corners) would make it look a lot cleaner. The Fun level also gets choppy with all 22 cars and the scenery on screen, so drawing them more efficiently would help it run smoother on slower laptops.
 
 
 ## 6. How we made the assets
